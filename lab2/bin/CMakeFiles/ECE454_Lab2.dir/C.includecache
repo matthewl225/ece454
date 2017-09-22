@@ -1,0 +1,110 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/mnt/c/Programming Projects/ece454/lab2/ECE454-Lab2.c
+ctype.h
+-
+stdio.h
+-
+stdlib.h
+-
+unistd.h
+-
+memory.h
+-
+stdbool.h
+-
+loadbmp.h
+/mnt/c/Programming Projects/ece454/lab2/loadbmp.h
+utilities.h
+/mnt/c/Programming Projects/ece454/lab2/utilities.h
+fcyc.h
+/mnt/c/Programming Projects/ece454/lab2/fcyc.h
+implementation_reference.h
+/mnt/c/Programming Projects/ece454/lab2/implementation_reference.h
+implementation.h
+/mnt/c/Programming Projects/ece454/lab2/implementation.h
+
+/mnt/c/Programming Projects/ece454/lab2/clock.c
+stdio.h
+-
+stdlib.h
+-
+unistd.h
+-
+sys/times.h
+-
+clock.h
+/mnt/c/Programming Projects/ece454/lab2/clock.h
+
+/mnt/c/Programming Projects/ece454/lab2/clock.h
+
+/mnt/c/Programming Projects/ece454/lab2/fcyc.c
+stdlib.h
+-
+sys/times.h
+-
+stdio.h
+-
+stdbool.h
+-
+clock.h
+/mnt/c/Programming Projects/ece454/lab2/clock.h
+fcyc.h
+/mnt/c/Programming Projects/ece454/lab2/fcyc.h
+
+/mnt/c/Programming Projects/ece454/lab2/fcyc.h
+
+/mnt/c/Programming Projects/ece454/lab2/implementation.c
+stdio.h
+-
+string.h
+-
+stdbool.h
+-
+utilities.h
+/mnt/c/Programming Projects/ece454/lab2/utilities.h
+implementation_reference.h
+/mnt/c/Programming Projects/ece454/lab2/implementation_reference.h
+
+/mnt/c/Programming Projects/ece454/lab2/implementation.h
+
+/mnt/c/Programming Projects/ece454/lab2/implementation_reference.c
+stdio.h
+-
+string.h
+-
+stdbool.h
+-
+utilities.h
+/mnt/c/Programming Projects/ece454/lab2/utilities.h
+
+/mnt/c/Programming Projects/ece454/lab2/implementation_reference.h
+
+/mnt/c/Programming Projects/ece454/lab2/loadbmp.h
+stdlib.h
+-
+string.h
+-
+stdio.h
+-
+
+/mnt/c/Programming Projects/ece454/lab2/utilities.c
+stdio.h
+-
+stdlib.h
+-
+string.h
+-
+stdbool.h
+-
+utilities.h
+/mnt/c/Programming Projects/ece454/lab2/utilities.h
+
+/mnt/c/Programming Projects/ece454/lab2/utilities.h
+

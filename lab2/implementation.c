@@ -113,15 +113,15 @@ void print_team_info(){
     char team_name[] = "default-name";
 
     // Please fill in your information
-    char student1_first_name[] = "john";
-    char student1_last_name[] = "doe";
-    char student1_student_number[] = "0000000000";
+    char student1_first_name[] = "Connor";
+    char student1_last_name[] = "Smith";
+    char student1_student_number[] = "1000421411";
 
     // Please fill in your partner's information
     // If yon't have partner, do not modify this
-    char student2_first_name[] = "joe";
-    char student2_last_name[] = "doe";
-    char student2_student_number[] = "0000000001";
+    char student2_first_name[] = "Fan";
+    char student2_last_name[] = "Guo";
+    char student2_student_number[] = "1000626539";
 
     // Printing out team information
     printf("*******************************************************************************************************\n");
