@@ -4,8 +4,10 @@
 #include "utilities.h"  // DO NOT REMOVE this line
 #include "implementation_reference.h"   // DO NOT REMOVE this line
 
+
+
 /***********************************************************************************************************************
- * @param buffer_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
+ * @param original_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
  * @param width - width of the imported 24-bit bitmap image
  * @param height - height of the imported 24-bit bitmap image
  * @param offset - number of pixels to shift the object in bitmap image up
@@ -13,12 +15,56 @@
  * Note1: White pixels RGB(255,255,255) are treated as background. Object in the image refers to non-white pixels.
  * Note2: You can assume the object will never be moved off the screen
  **********************************************************************************************************************/
-unsigned char *processMoveUp(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
-    return processMoveUpReference(buffer_frame, width, height, offset);
+void processMoveUp(unsigned char *original_frame, unsigned char *rendered_frame, unsigned width, unsigned height, int offset) {
+    // store shifted pixels to temporary buffer
+
+    // precomputed constants
+    int const width_3 = width * 3;
+    int const height_minus_offset = height - offset;
+
+    // Loop variables
+    int row, column, column_3, row_width_3;
+
+    int position_rendered_frame_row_offset = 0;
+    int position_original_frame_row_offset = offset * width_3;
+    int position_rendered_frame, position_original_frame;
+    for (row = 0; row < height_minus_offset; ++row) {
+        column_3 = 0;
+        for (column = 0; column < width; ++column) {
+            // TODO can probably remove column_3
+            position_rendered_frame = position_rendered_frame_row_offset + column_3;
+            position_original_frame = position_original_frame_row_offset + column_3;
+            rendered_frame[position_rendered_frame] = original_frame[position_original_frame];
+            rendered_frame[position_rendered_frame + 1] = original_frame[position_original_frame + 1];
+            rendered_frame[position_rendered_frame + 2] = original_frame[position_original_frame + 2];
+            column_3 += 3;
+        }
+        position_rendered_frame_row_offset += width_3;
+        position_original_frame_row_offset += width_3;
+    }
+
+    // fill left over pixels with white pixels
+    row_width_3 = height_minus_offset * width_3;
+    for (row = height_minus_offset; row < height; ++row) {
+        column_3 = 0;
+        for (column = 0; column < width; ++column) {
+            int position_rendered_frame = row_width_3 + column_3;
+            rendered_frame[position_rendered_frame] = 255;
+            rendered_frame[position_rendered_frame + 1] = 255;
+            rendered_frame[position_rendered_frame + 2] = 255;
+            column_3 += 3;
+        }
+        row_width_3 += width_3;
+    }
+
+    // TODO: do this copy inline rather than using a temporary buffer
+    // copy the temporary buffer back to original frame buffer
+    original_frame = copyFrame(rendered_frame, original_frame, width, height);
+    // return processMoveUpReference(original_frame, width, height, offset);
 }
 
 /***********************************************************************************************************************
- * @param buffer_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
+ * @param original_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
  * @param width - width of the imported 24-bit bitmap image
  * @param height - height of the imported 24-bit bitmap image
  * @param offset - number of pixels to shift the object in bitmap image left
@@ -26,12 +72,55 @@ unsigned char *processMoveUp(unsigned char *buffer_frame, unsigned width, unsign
  * Note1: White pixels RGB(255,255,255) are treated as background. Object in the image refers to non-white pixels.
  * Note2: You can assume the object will never be moved off the screen
  **********************************************************************************************************************/
-unsigned char *processMoveRight(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
-    return processMoveRightReference(buffer_frame, width, height, offset);
+void processMoveRight(unsigned char *original_frame, unsigned char *rendered_frame, unsigned width, unsigned height, int offset) {
+    // precomputed constants
+    int const width_3 = width * 3;
+    int const offset_3 = offset * 3;
+
+    // Loop variables
+    int row, column, column_3, row_width_3;
+    int column_minus_offset_3 = 0;
+
+    int position_rendered_frame_row_offset = 0;
+    int position_original_frame_row_offset = offset * width_3;
+    int position_rendered_frame, position_original_frame;
+    // store shifted pixels to temporary buffer
+    row_width_3 = 0;
+    for (row = 0; row < height; row++) {
+        column_3 = offset_3;
+        column_minus_offset_3 = 0;
+        for (column = offset; column < width; column++) {
+            position_rendered_frame = position_rendered_frame_row_offset + column_3;
+            position_original_frame = row_width_3 + column_minus_offset_3;
+            rendered_frame[position_rendered_frame] = original_frame[position_original_frame];
+            rendered_frame[position_rendered_frame + 1] = original_frame[position_original_frame + 1];
+            rendered_frame[position_rendered_frame + 2] = original_frame[position_original_frame + 2];
+            column_3 += 3;
+            column_minus_offset_3 += 3;
+        }
+        row_width_3 += width_3;
+    }
+
+    // fill left over pixels with white pixels
+    row_width_3 = 0;
+    column_3 = 0;
+    for (row = 0; row < height; row++) {
+        for (column = 0; column < offset; column++) {
+            position_rendered_frame = row_width_3 + column_3;
+            rendered_frame[position_rendered_frame] = 255;
+            rendered_frame[position_rendered_frame + 1] = 255;
+            rendered_frame[position_rendered_frame + 2] = 255;
+            column_3 += 3;
+        }
+        row_width_3 += width_3;
+    }
+
+    // copy the temporary buffer back to original frame buffer
+    original_frame = copyFrame(rendered_frame, original_frame, width, height);
 }
 
 /***********************************************************************************************************************
- * @param buffer_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
+ * @param original_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
  * @param width - width of the imported 24-bit bitmap image
  * @param height - height of the imported 24-bit bitmap image
  * @param offset - number of pixels to shift the object in bitmap image up
@@ -39,12 +128,12 @@ unsigned char *processMoveRight(unsigned char *buffer_frame, unsigned width, uns
  * Note1: White pixels RGB(255,255,255) are treated as background. Object in the image refers to non-white pixels.
  * Note2: You can assume the object will never be moved off the screen
  **********************************************************************************************************************/
-unsigned char *processMoveDown(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
-    return processMoveDownReference(buffer_frame, width, height, offset);
+void processMoveDown(unsigned char *original_frame, unsigned char *rendered_frame, unsigned width, unsigned height, int offset) {
+    // return processMoveDownReference(original_frame, width, height, offset);
 }
 
 /***********************************************************************************************************************
- * @param buffer_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
+ * @param original_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
  * @param width - width of the imported 24-bit bitmap image
  * @param height - height of the imported 24-bit bitmap image
  * @param offset - number of pixels to shift the object in bitmap image right
@@ -52,56 +141,56 @@ unsigned char *processMoveDown(unsigned char *buffer_frame, unsigned width, unsi
  * Note1: White pixels RGB(255,255,255) are treated as background. Object in the image refers to non-white pixels.
  * Note2: You can assume the object will never be moved off the screen
  **********************************************************************************************************************/
-unsigned char *processMoveLeft(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
-    return processMoveLeftReference(buffer_frame, width, height, offset);
+void processMoveLeft(unsigned char *original_frame, unsigned char *rendered_frame, unsigned width, unsigned height, int offset) {
+    // return processMoveLeftReference(original_frame, width, height, offset);
 }
 
 /***********************************************************************************************************************
- * @param buffer_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
+ * @param original_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
  * @param width - width of the imported 24-bit bitmap image
  * @param height - height of the imported 24-bit bitmap image
  * @param rotate_iteration - rotate object inside frame buffer clockwise by 90 degrees, <iteration> times
  * @return - pointer pointing a buffer storing a modified 24-bit bitmap image
  * Note: You can assume the frame will always be square and you will be rotating the entire image
  **********************************************************************************************************************/
-unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsigned height,
+void processRotateCW(unsigned char *original_frame, unsigned char *rendered_frame, unsigned width, unsigned height,
                                int rotate_iteration) {
-    return processRotateCWReference(buffer_frame, width, height, rotate_iteration);
+    // return processRotateCWReference(original_frame, width, height, rotate_iteration);
 }
 
 /***********************************************************************************************************************
- * @param buffer_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
+ * @param original_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
  * @param width - width of the imported 24-bit bitmap image
  * @param height - height of the imported 24-bit bitmap image
  * @param rotate_iteration - rotate object inside frame buffer counter clockwise by 90 degrees, <iteration> times
  * @return - pointer pointing a buffer storing a modified 24-bit bitmap image
  * Note: You can assume the frame will always be square and you will be rotating the entire image
  **********************************************************************************************************************/
-unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, unsigned height,
+void processRotateCCW(unsigned char *original_frame, unsigned char *rendered_frame, unsigned width, unsigned height,
                                 int rotate_iteration) {
-    return processRotateCCWReference(buffer_frame, width, height, rotate_iteration);
+    // return processRotateCCWReference(original_frame, width, height, rotate_iteration);
 }
 
 /***********************************************************************************************************************
- * @param buffer_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
+ * @param original_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
  * @param width - width of the imported 24-bit bitmap image
  * @param height - height of the imported 24-bit bitmap image
  * @param _unused - this field is unused
  * @return
  **********************************************************************************************************************/
-unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, unsigned int height, int _unused) {
-    return processMirrorXReference(buffer_frame, width, height, _unused);
+void processMirrorX(unsigned char *original_frame, unsigned char *rendered_frame, unsigned int width, unsigned int height, int _unused) {
+    // return processMirrorXReference(original_frame, width, height, _unused);
 }
 
 /***********************************************************************************************************************
- * @param buffer_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
+ * @param original_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
  * @param width - width of the imported 24-bit bitmap image
  * @param height - height of the imported 24-bit bitmap image
  * @param _unused - this field is unused
  * @return
  **********************************************************************************************************************/
-unsigned char *processMirrorY(unsigned char *buffer_frame, unsigned width, unsigned height, int _unused) {
-    return processMirrorYReference(buffer_frame, width, height, _unused);
+void processMirrorY(unsigned char *original_frame, unsigned char *rendered_frame, unsigned width, unsigned height, int _unused) {
+    // return processMirrorYReference(original_frame, width, height, _unused);
 }
 
 /***********************************************************************************************************************
@@ -150,39 +239,42 @@ void print_team_info(){
  **********************************************************************************************************************/
 void implementation_driver(struct kv *sensor_values, int sensor_values_count, unsigned char *frame_buffer,
                            unsigned int width, unsigned int height, bool grading_mode) {
+    unsigned char *new_frame_buffer = allocateFrame(width, height);
     int processed_frames = 0;
     for (int sensorValueIdx = 0; sensorValueIdx < sensor_values_count; sensorValueIdx++) {
+        // TODO: expand strcmp into direct comparisons on char values, remember \0 at end
 //        printf("Processing sensor value #%d: %s, %d\n", sensorValueIdx, sensor_values[sensorValueIdx].key,
 //               sensor_values[sensorValueIdx].value);
         if (!strcmp(sensor_values[sensorValueIdx].key, "W")) {
-            frame_buffer = processMoveUp(frame_buffer, width, height, sensor_values[sensorValueIdx].value);
+            processMoveUp(frame_buffer, new_frame_buffer, width, height, sensor_values[sensorValueIdx].value);
 //            printBMP(width, height, frame_buffer);
         } else if (!strcmp(sensor_values[sensorValueIdx].key, "A")) {
-            frame_buffer = processMoveLeft(frame_buffer, width, height, sensor_values[sensorValueIdx].value);
+            processMoveLeft(frame_buffer, new_frame_buffer, width, height, sensor_values[sensorValueIdx].value);
 //            printBMP(width, height, frame_buffer);
         } else if (!strcmp(sensor_values[sensorValueIdx].key, "S")) {
-            frame_buffer = processMoveDown(frame_buffer, width, height, sensor_values[sensorValueIdx].value);
+            processMoveDown(frame_buffer, new_frame_buffer, width, height, sensor_values[sensorValueIdx].value);
 //            printBMP(width, height, frame_buffer);
         } else if (!strcmp(sensor_values[sensorValueIdx].key, "D")) {
-            frame_buffer = processMoveRight(frame_buffer, width, height, sensor_values[sensorValueIdx].value);
+            processMoveRight(frame_buffer, new_frame_buffer, width, height, sensor_values[sensorValueIdx].value);
 //            printBMP(width, height, frame_buffer);
         } else if (!strcmp(sensor_values[sensorValueIdx].key, "CW")) {
-            frame_buffer = processRotateCW(frame_buffer, width, height, sensor_values[sensorValueIdx].value);
+            processRotateCW(frame_buffer, new_frame_buffer, width, height, sensor_values[sensorValueIdx].value);
 //            printBMP(width, height, frame_buffer);
         } else if (!strcmp(sensor_values[sensorValueIdx].key, "CCW")) {
-            frame_buffer = processRotateCCW(frame_buffer, width, height, sensor_values[sensorValueIdx].value);
+            processRotateCCW(frame_buffer, new_frame_buffer, width, height, sensor_values[sensorValueIdx].value);
 //            printBMP(width, height, frame_buffer);
         } else if (!strcmp(sensor_values[sensorValueIdx].key, "MX")) {
-            frame_buffer = processMirrorX(frame_buffer, width, height, sensor_values[sensorValueIdx].value);
+            processMirrorX(frame_buffer, new_frame_buffer, width, height, sensor_values[sensorValueIdx].value);
 //            printBMP(width, height, frame_buffer);
         } else if (!strcmp(sensor_values[sensorValueIdx].key, "MY")) {
-            frame_buffer = processMirrorY(frame_buffer, width, height, sensor_values[sensorValueIdx].value);
+            processMirrorY(frame_buffer, new_frame_buffer, width, height, sensor_values[sensorValueIdx].value);
 //            printBMP(width, height, frame_buffer);
         }
         processed_frames += 1;
         if (processed_frames % 25 == 0) {
-            verifyFrame(frame_buffer, width, height, grading_mode);
+            verifyFrame(new_frame_buffer, width, height, grading_mode);
         }
     }
+    deallocateFrame(new_frame_buffer);
     return;
 }
