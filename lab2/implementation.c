@@ -5,6 +5,9 @@
 #include "utilities.h"  // DO NOT REMOVE this line
 #include "implementation_reference.h"   // DO NOT REMOVE this line
 
+// Configuration parameters, uncomment them to turn them on
+#define USE_ISWHITEARRAY
+
 unsigned char *rendered_frame;
 
 /* SENSOR COLLAPSING CODE */
@@ -90,7 +93,6 @@ int insert_translation_frames(optimized_kv *collapsed_sensor_values, int new_cou
 /*
  * @param 
  */
-// TODO: we can probably do a second pass on the collapsed_sensor_values to collapse it even more
 optimized_kv* collapse_sensor_values(struct kv *sensor_values, int sensor_values_count, int *new_sensor_value_count) {
     int new_count = 0;
     char *sensor_value_key;
@@ -237,6 +239,89 @@ optimized_kv* collapse_sensor_values(struct kv *sensor_values, int sensor_values
     return second_pass_collapsed_values;
 }
 /* END SENSOR COLLAPSING CODE */
+
+
+/* White Pixel Optimization Structures */
+
+/* Use this structure as follows
+ *
+ * if isWhiteArea[i,j] is true, then the square with corners at (isWhiteAreaStrideX * i, isWhiteAreaStrideY * j, isWhiteAreaStrideX * (i + 1) - 1, isWhiteAreaStrideY * (j + 1) - 1)
+ * contains only white pixels and can be optimized as such
+ */
+
+#ifdef USE_ISWHITEARRAY
+#define isWhiteAreaStrideX 21 // translates to 64 bytes, each pixel is 3 bytes
+#define isWhiteAreaStrideY 21 // 64 / 3
+bool *isWhiteArea;
+bool checkWhiteAreaSquare(unsigned char *buffer_frame, unsigned buffer_pxwidth, unsigned whiteAreaCol, unsigned whiteAreaRow, unsigned pxWidth, unsigned pxHeight) {
+    unsigned row_offset = whiteAreaRow * isWhiteAreaStrideY * buffer_pxwidth * 3;
+    unsigned col_offset = whiteAreaCol * isWhiteAreaStrideX * 3;
+    for (int row = 0; row < pxHeight; ++row) {
+        for (int col = 0; col < pxWidth; ++col) {
+            int pixel_index = row_offset + col_offset + row * buffer_pxwidth * 3 + col * 3;
+            if (buffer_frame[pixel_index] != 255 ||
+                buffer_frame[pixel_index + 1] != 255 ||
+                buffer_frame[pixel_index + 2] != 255)
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+void createIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned height) {
+    unsigned int numStridesX = (width / isWhiteAreaStrideX) + 1; // divide into this many 21x21 pixel squares
+    unsigned int numStridesY = (height / isWhiteAreaStrideY) + 1;
+
+    isWhiteArea = calloc(numStridesX * numStridesY, sizeof(bool));
+    int col_offset;
+    int row_offset = 0;
+    int whiteAreaRow, whiteAreaCol;
+    for (whiteAreaRow = 0; whiteAreaRow < numStridesY - 1; ++whiteAreaRow) {
+        col_offset = 0;
+        for (whiteAreaCol = 0; whiteAreaCol < numStridesX - 1; ++whiteAreaCol) {
+            // todo: optimize this
+            isWhiteArea[whiteAreaRow * numStridesX + whiteAreaCol] =
+                checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStrideX, isWhiteAreaStrideY);
+        }
+    }
+
+    // do the bottom row of the array, which may not be a full stride in height. Doesn't include bottom right corner
+    unsigned remainingStrideHeight = height % isWhiteAreaStrideY;
+    unsigned remainingStrideWidth = width % isWhiteAreaStrideX;
+    // whiteAreaRow is numStridesY - 1
+    for (whiteAreaCol = 0; whiteAreaCol < numStridesX - 1; ++whiteAreaCol) {
+        isWhiteArea[whiteAreaRow * numStridesX + whiteAreaCol] =
+            checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStrideX, remainingStrideHeight);
+    }
+
+    // do the right most column of the array, white may not be a full stride in width. Doesn't include bottom right corner
+    // whiteAreaCol is numStridesX - 1
+    for (whiteAreaRow = 0; whiteAreaRow < numStridesY - 1; ++whiteAreaRow) {
+        isWhiteArea[whiteAreaRow * numStridesX + whiteAreaCol] =
+            checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, remainingStrideWidth, isWhiteAreaStrideY);
+    }
+
+    // do the bottom right corner
+    // whiteAreaRow = numStridesY - 1, whiteAreaCol = numStridesX - 1
+    isWhiteArea[whiteAreaRow * numStridesX + whiteAreaCol] =
+        checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, remainingStrideWidth, remainingStrideHeight);
+
+    /* For debugging: print the white area array
+    for (int j = 0; j < numStridesY; j++) {
+        for (int i = 0; i < numStridesX; i++) {
+            printf("%d ", isWhiteArea[j * numStridesX + i]);
+        }
+        printf("\n");
+    }
+    */
+
+}
+#endif
+
+
+/* End White Pixel Optimization Structures */
+
 
 /***********************************************************************************************************************
  * @param buffer_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
@@ -470,6 +555,9 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
         printf("\tCommand: %d Value: %d\n", collapsed_sensor_values[i].type, collapsed_sensor_values[i].value);
     }
     */
+    #ifdef USE_ISWHITEARRAY
+    createIsWhiteArea(frame_buffer, width, height);
+    #endif
     for (int i = 0; i < collapsed_sensor_values_count; ++i) {
         switch(collapsed_sensor_values[i].type) {
             case   W: frame_buffer = processMoveUp(frame_buffer, width, height, collapsed_sensor_values[i].value); break;
@@ -483,6 +571,9 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
             case FRAME_BREAK: verifyFrame(frame_buffer, width, height, grading_mode); break;
         }
     }
+    #ifdef USE_ISWHITEARRAY
+    free(isWhiteArea);
+    #endif
     free(collapsed_sensor_values);
     deallocateFrame(rendered_frame);
     return;
