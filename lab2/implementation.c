@@ -310,7 +310,7 @@ void createIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned hei
     /* For debugging: print the white area array
     for (int j = 0; j < numStridesY; j++) {
         for (int i = 0; i < numStridesX; i++) {
-            printf("%d ", isWhiteArea[j * numStridesX + i]);
+            printf("%d", isWhiteArea[j * numStridesX + i]);
         }
         printf("\n");
     }
