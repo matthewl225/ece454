@@ -8,6 +8,7 @@
 // Configuration parameters, uncomment them to turn them on
 #define USE_ISWHITEARRAY
 
+// TODO: can be removed once everything is done in-place
 unsigned char *rendered_frame;
 
 /* SENSOR COLLAPSING CODE */
@@ -319,8 +320,91 @@ void createIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned hei
 }
 #endif
 
-
 /* End White Pixel Optimization Structures */
+
+/* SubSquare Manipulation functions */
+
+void swapAndMirrorXSubsquares(unsigned char *buffer_frame, unsigned buffer_width, unsigned left_left_pxindex, unsigned left_top_pxindex, unsigned right_right_pxindex, unsigned right_top_pxindex, unsigned subsquare_width, unsigned subsquare_height) {
+    const unsigned buffer_width_3 = buffer_width * 3;
+    const unsigned left_left_pxindex_3 = left_left_pxindex * 3;
+    const unsigned right_right_pxindex_3 = right_right_pxindex * 3;
+
+    unsigned ll_index, rr_index;
+    unsigned char temp;
+
+    /*
+    printf("\n\nOld Left Square:\n");
+    for (int i = 0; i < subsquare_height; i++) {
+        for (int j = 0; j < subsquare_width; j++){
+            unsigned char r = buffer_frame[left_left_pxindex_3 + i*buffer_width_3 + j * 3];
+            unsigned char g = buffer_frame[left_left_pxindex_3 + i*buffer_width_3 + j * 3 + 1];
+            unsigned char b = buffer_frame[left_left_pxindex_3 + i*buffer_width_3 + j * 3 + 2];
+            printf("(%d,%d,%d)", r, g, b);
+        }
+        printf("\n");
+    }
+    printf("Old Right Square:\n");
+    unsigned int right_left_pxindex = right_right_pxindex - subsquare_width + 1;
+    for (int i = 0; i < subsquare_height; i++) {
+        for (int j = 0; j < subsquare_width; j++){
+            unsigned char r = buffer_frame[right_left_pxindex * 3 + i*buffer_width_3 + j*3];
+            unsigned char g = buffer_frame[right_left_pxindex * 3 + i*buffer_width_3 + j*3 + 1];
+            unsigned char b = buffer_frame[right_left_pxindex * 3 + i*buffer_width_3 + j*3 + 2];
+            printf("(%d,%d,%d)", r, g, b);
+        }
+        printf("\n");
+    }
+    */
+
+    // printf("MirrorX swapping the square at tl(%d,%d) with the square tr(%d,%d)\n", left_left_pxindex, left_top_pxindex, right_right_pxindex, right_top_pxindex);
+    for (int i = 0; i < subsquare_height; ++i) {
+        // move to first element of next row down
+        ll_index = left_left_pxindex_3 + (left_top_pxindex + i) * buffer_width_3;
+        // move to last element of next row down
+        rr_index = right_right_pxindex_3 + (right_top_pxindex + i) * buffer_width_3;
+        for (int j = 0; j < subsquare_width; ++j) {
+            // swap red values of left and right, in mirrored x order
+            // printf("\tSwapping red values located at %d and %d\n", ll_index, rr_index);
+            temp = buffer_frame[ll_index];
+            buffer_frame[ll_index++] = buffer_frame[rr_index];
+            buffer_frame[rr_index++] = temp;
+            // swap blue values of left and right, in mirrored x order
+            temp = buffer_frame[ll_index];
+            buffer_frame[ll_index++] = buffer_frame[rr_index];
+            buffer_frame[rr_index++] = temp;
+            // swap green values of left and right, in mirrored x order
+            temp = buffer_frame[ll_index];
+            buffer_frame[ll_index++] = buffer_frame[rr_index];
+            buffer_frame[rr_index] = temp;
+
+            rr_index -= 5; // move to the red value of the previous pixel on the right side frame
+        }
+        // printf("----\n");
+    }
+    /*
+    printf("\nNew Left Square:\n");
+    for (int i = 0; i < subsquare_height; i++) {
+        for (int j = 0; j < subsquare_width; j++){
+            unsigned char r = buffer_frame[left_left_pxindex_3 + i*buffer_width_3 + j * 3];
+            unsigned char g = buffer_frame[left_left_pxindex_3 + i*buffer_width_3 + j * 3 + 1];
+            unsigned char b = buffer_frame[left_left_pxindex_3 + i*buffer_width_3 + j * 3 + 2];
+            printf("(%d,%d,%d)", r, g, b);
+        }
+        printf("\n");
+    }
+    printf("New Right Square:\n");
+    right_left_pxindex = right_right_pxindex - subsquare_width + 1;
+    for (int i = 0; i < subsquare_height; i++) {
+        for (int j = 0; j < subsquare_width; j++){
+            unsigned char r = buffer_frame[right_left_pxindex * 3 + i*buffer_width_3 + j*3];
+            unsigned char g = buffer_frame[right_left_pxindex * 3 + i*buffer_width_3 + j*3 + 1];
+            unsigned char b = buffer_frame[right_left_pxindex * 3 + i*buffer_width_3 + j*3 + 2];
+            printf("(%d,%d,%d)", r, g, b);
+        }
+        printf("\n");
+    }
+    */
+}
 
 
 /***********************************************************************************************************************
