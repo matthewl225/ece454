@@ -324,7 +324,7 @@ void createIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned hei
 
 /* SubSquare Manipulation functions */
 
-void swapAndMirrorXSubsquares(unsigned char *buffer_frame, unsigned buffer_width, unsigned left_left_pxindex, unsigned left_top_pxindex, unsigned right_right_pxindex, unsigned right_top_pxindex, unsigned subsquare_width, unsigned subsquare_height) {
+void swapAndMirrorYSubsquares(unsigned char *buffer_frame, unsigned buffer_width, unsigned left_left_pxindex, unsigned left_top_pxindex, unsigned right_right_pxindex, unsigned right_top_pxindex, unsigned subsquare_width, unsigned subsquare_height) {
     const unsigned buffer_width_3 = buffer_width * 3;
     const unsigned left_left_pxindex_3 = left_left_pxindex * 3;
     const unsigned right_right_pxindex_3 = right_right_pxindex * 3;
@@ -356,7 +356,7 @@ void swapAndMirrorXSubsquares(unsigned char *buffer_frame, unsigned buffer_width
     }
     */
 
-    // printf("MirrorX swapping the square at tl(%d,%d) with the square tr(%d,%d)\n", left_left_pxindex, left_top_pxindex, right_right_pxindex, right_top_pxindex);
+    // printf("MirrorY swapping the square at tl(%d,%d) with the square tr(%d,%d)\n", left_left_pxindex, left_top_pxindex, right_right_pxindex, right_top_pxindex);
     for (int i = 0; i < subsquare_height; ++i) {
         // move to first element of next row down
         ll_index = left_left_pxindex_3 + (left_top_pxindex + i) * buffer_width_3;
@@ -364,15 +364,17 @@ void swapAndMirrorXSubsquares(unsigned char *buffer_frame, unsigned buffer_width
         rr_index = right_right_pxindex_3 + (right_top_pxindex + i) * buffer_width_3;
         for (int j = 0; j < subsquare_width; ++j) {
             // swap red values of left and right, in mirrored x order
-            // printf("\tSwapping red values located at %d and %d\n", ll_index, rr_index);
+            // printf("\tSwapping red values located at %d(%d) and %d(%d)\n", ll_index, buffer_frame[ll_index], rr_index, buffer_frame[rr_index]);
             temp = buffer_frame[ll_index];
             buffer_frame[ll_index++] = buffer_frame[rr_index];
             buffer_frame[rr_index++] = temp;
             // swap blue values of left and right, in mirrored x order
+            // printf("\tSwapping blue values located at %d(%d) and %d(%d)\n", ll_index, buffer_frame[ll_index], rr_index, buffer_frame[rr_index]);
             temp = buffer_frame[ll_index];
             buffer_frame[ll_index++] = buffer_frame[rr_index];
             buffer_frame[rr_index++] = temp;
             // swap green values of left and right, in mirrored x order
+            // printf("\tSwapping green values located at %d(%d) and %d(%d)\n", ll_index, buffer_frame[ll_index], rr_index, buffer_frame[rr_index]);
             temp = buffer_frame[ll_index];
             buffer_frame[ll_index++] = buffer_frame[rr_index];
             buffer_frame[rr_index] = temp;
@@ -580,7 +582,30 @@ unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, u
  * @return
  **********************************************************************************************************************/
 unsigned char *processMirrorY(unsigned char *buffer_frame, unsigned width, unsigned height, int _unused) {
-    return processMirrorYReference(buffer_frame, width, height, _unused);
+    /*
+    printf("original:\n");
+    for (int row = 0; row < height; row++) {
+        for (int column = 0; column < width; column++) {
+            int position_buffer_frame = row * height * 3 + column * 3;
+            printf("(%d,%d,%d)", buffer_frame[position_buffer_frame], buffer_frame[position_buffer_frame + 1], buffer_frame[position_buffer_frame + 2]);
+        }
+        printf("\n");
+    }
+    */
+    // TODO: only swap and mirror non-white squares.
+    swapAndMirrorYSubsquares(buffer_frame, width, 0, 0, width-1, 0, width/2, height);
+    /*
+    printf("mirrored:\n");
+    for (int row = 0; row < height; row++) {
+        for (int column = 0; column < width; column++) {
+            int position_buffer_frame = row * height * 3 + column * 3;
+            printf("(%d,%d,%d)", buffer_frame[position_buffer_frame], buffer_frame[position_buffer_frame + 1], buffer_frame[position_buffer_frame + 2]);
+        }
+        printf("\n");
+    }
+    */
+    // TODO: once everything is done in-place, wont need this return anymore
+    return buffer_frame;
 }
 
 /***********************************************************************************************************************
