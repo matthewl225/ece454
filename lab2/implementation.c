@@ -273,47 +273,58 @@ bool checkWhiteAreaSquare(unsigned char *buffer_frame, unsigned buffer_pxwidth, 
     return false;
 }
 
-// TODO: check this
 void translatePixelToWhiteSpaceArrayIndices(unsigned px_x, unsigned px_y, unsigned px_width, unsigned *ws_x_out, unsigned *ws_y_out) {
     // if px_x is inside the middle column, return the middle column
-    const unsigned numFullStridesX_div_2 = numFullStridesX / 2;
-    const unsigned numFullStridesY_div_2 = numFullStridesY / 2;
+    const bool hasMiddleSquare = (middleSquareDimensions != 0);
 
-    int test = px_x - (numFullStridesX_div_2 * isWhiteAreaStride);
-    if (test <= middleSquareDimensions && test >= 0) {
-        // inside the middle
-        *ws_x_out = numFullStridesX_div_2;
-    } else if (test < 0) {
-        // left of the middle
+    if (!hasMiddleSquare) {
         *ws_x_out = px_x / isWhiteAreaStride;
-    } else if (test > middleSquareDimensions) {
-        // right of the middle
-        *ws_x_out = (numFullStridesX_div_2) + 1 + ((test - middleSquareDimensions) / isWhiteAreaStride);
-    }
-
-    test = px_y - (numFullStridesY_div_2 * isWhiteAreaStride);
-    if (test < middleSquareDimensions && test >= 0) {
-        // inside the middle
-        *ws_y_out = numFullStridesY_div_2 + 1;
-    } else if (test < 0) {
-        // above the middle
         *ws_y_out = px_y / isWhiteAreaStride;
-    } else if (test >= middleSquareDimensions) {
-        // below the middle
-        *ws_y_out = (numFullStridesY_div_2) + 1 + ((test - middleSquareDimensions) / isWhiteAreaStride);
+    } else {
+        const unsigned numFullStridesX_div_2 = numFullStridesX / 2;
+        const unsigned numFullStridesY_div_2 = numFullStridesY / 2;
+        int test = px_x - (numFullStridesX_div_2 * isWhiteAreaStride);
+        if (test < middleSquareDimensions && test >= 0) {
+            // inside the middle
+            *ws_x_out = numFullStridesX_div_2;
+        } else if (test < 0) {
+            // left of the middle
+            *ws_x_out = px_x / isWhiteAreaStride;
+        } else if (test > middleSquareDimensions) {
+            // right of the middle
+            *ws_x_out = (numFullStridesX_div_2) + 1 + ((test - middleSquareDimensions) / isWhiteAreaStride);
+        }
+
+        test = px_y - (numFullStridesY_div_2 * isWhiteAreaStride);
+        if (test < middleSquareDimensions && test >= 0) {
+            // inside the middle
+            *ws_y_out = numFullStridesY_div_2;
+        } else if (test < 0) {
+            // above the middle
+            *ws_y_out = px_y / isWhiteAreaStride;
+        } else if (test >= middleSquareDimensions) {
+            // below the middle
+            *ws_y_out = (numFullStridesY_div_2) + 1 + ((test - middleSquareDimensions) / isWhiteAreaStride);
+        }
     }
 
 }
 
 // returns the top left pixel of the given white space array square
 void translateWhiteSpaceArrayIndicesToPixel(unsigned ws_x, unsigned ws_y, unsigned ws_width, unsigned *px_x_out, unsigned *px_y_out) {
-    *px_x_out = ws_x * isWhiteAreaStride + (ws_x >= numFullStridesX / 2 ? middleSquareDimensions - isWhiteAreaStride : 0);
-    *px_y_out = ws_y * isWhiteAreaStride + (ws_y >= numFullStridesY / 2 ? middleSquareDimensions - isWhiteAreaStride : 0);
+    if (middleSquareDimensions != 0) {
+        *px_x_out = ws_x * isWhiteAreaStride + (ws_x >= numFullStridesX / 2 ? middleSquareDimensions - isWhiteAreaStride : 0);
+        *px_y_out = ws_y * isWhiteAreaStride + (ws_y >= numFullStridesY / 2 ? middleSquareDimensions - isWhiteAreaStride : 0);
+    } else {
+        *px_x_out = ws_x * isWhiteAreaStride;
+        *px_y_out = ws_y * isWhiteAreaStride;
+    }
 }
 
 void populateIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned height) {
-    unsigned int boolArrayWidth = numFullStridesX + 1;
-    unsigned int boolArrayHeight = numFullStridesY + 1;
+    const bool hasMiddleSquare = (middleSquareDimensions != 0);
+    unsigned int boolArrayWidth = numFullStridesX + (middleSquareDimensions != 0);
+    unsigned int boolArrayHeight = numFullStridesY + (middleSquareDimensions != 0);
 
     // 500x500 image = 22 21x21 squares with a 38x38 middle square, 38x21 middle column and 21x38 middle row
     // |11 21-wide squares|38 wide square|11 21-wide squares|
@@ -329,7 +340,7 @@ void populateIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned h
     }
 
     // bottom left corner
-    for (whiteAreaRow = numFullStridesY / 2 + 1; whiteAreaRow < boolArrayHeight; ++whiteAreaRow) {
+    for (whiteAreaRow = numFullStridesY / 2 + hasMiddleSquare; whiteAreaRow < boolArrayHeight; ++whiteAreaRow) {
         for (whiteAreaCol = 0; whiteAreaCol < numFullStridesX / 2; ++whiteAreaCol) {
             // todo: optimize this
             isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
@@ -339,7 +350,7 @@ void populateIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned h
 
     // top right corner
     for (whiteAreaRow = 0; whiteAreaRow < numFullStridesY / 2; ++whiteAreaRow) {
-        for (whiteAreaCol = numFullStridesX / 2 + 1; whiteAreaCol < boolArrayWidth; ++whiteAreaCol) {
+        for (whiteAreaCol = numFullStridesX / 2 + hasMiddleSquare; whiteAreaCol < boolArrayWidth; ++whiteAreaCol) {
             // todo: optimize this
             isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
                 checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStride, isWhiteAreaStride);
@@ -347,47 +358,49 @@ void populateIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned h
     }
 
     // bottom right corner
-    for (whiteAreaRow = numFullStridesY / 2 + 1; whiteAreaRow < boolArrayHeight; ++whiteAreaRow) {
-        for (whiteAreaCol = numFullStridesX / 2 + 1; whiteAreaCol < boolArrayWidth; ++whiteAreaCol) {
+    for (whiteAreaRow = numFullStridesY / 2 + hasMiddleSquare; whiteAreaRow < boolArrayHeight; ++whiteAreaRow) {
+        for (whiteAreaCol = numFullStridesX / 2 + hasMiddleSquare; whiteAreaCol < boolArrayWidth; ++whiteAreaCol) {
             // todo: optimize this
             isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
                 checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStride, isWhiteAreaStride);
         }
     }
 
-    // left middle row
-    whiteAreaRow = numFullStridesY / 2;
-    for (whiteAreaCol = 0; whiteAreaCol < numFullStridesX / 2; ++whiteAreaCol) {
-        // todo: optimize this
-        isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
-            checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStride, middleSquareDimensions);
-    }
+    if (hasMiddleSquare) {
+        // left middle row
+        whiteAreaRow = numFullStridesY / 2;
+        for (whiteAreaCol = 0; whiteAreaCol < numFullStridesX / 2; ++whiteAreaCol) {
+            // todo: optimize this
+            isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+                checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStride, middleSquareDimensions);
+        }
 
-    // right middle row
-    for (whiteAreaCol = numFullStridesX / 2 + 1; whiteAreaCol < boolArrayWidth; ++whiteAreaCol) {
-        // todo: optimize this
-        isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
-            checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStride, middleSquareDimensions);
-    }
+        // right middle row
+        for (whiteAreaCol = numFullStridesX / 2 + 1; whiteAreaCol < boolArrayWidth; ++whiteAreaCol) {
+            // todo: optimize this
+            isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+                checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStride, middleSquareDimensions);
+        }
 
-    // top center row
-    whiteAreaCol = numFullStridesX / 2;
-    for (whiteAreaRow = 0; whiteAreaRow < numFullStridesY / 2; ++whiteAreaRow) {
-        isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
-            checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, middleSquareDimensions, isWhiteAreaStride);
-    }
+        // top center row
+        whiteAreaCol = numFullStridesX / 2;
+        for (whiteAreaRow = 0; whiteAreaRow < numFullStridesY / 2; ++whiteAreaRow) {
+            isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+                checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, middleSquareDimensions, isWhiteAreaStride);
+        }
 
-    // bottom center row
-    whiteAreaCol = numFullStridesX / 2;
-    for (whiteAreaRow = numFullStridesY / 2 + 1; whiteAreaRow < boolArrayHeight; ++whiteAreaRow) {
-        isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
-            checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, middleSquareDimensions, isWhiteAreaStride);
-    }
+        // bottom center row
+        whiteAreaCol = numFullStridesX / 2;
+        for (whiteAreaRow = numFullStridesY / 2 + 1; whiteAreaRow < boolArrayHeight; ++whiteAreaRow) {
+            isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+                checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, middleSquareDimensions, isWhiteAreaStride);
+        }
 
-    // middle square
-    whiteAreaCol = numFullStridesY / 2;
-    isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
-        checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, middleSquareDimensions, middleSquareDimensions);
+        // middle square
+        whiteAreaCol = numFullStridesY / 2;
+        isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+            checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, middleSquareDimensions, middleSquareDimensions);
+    }
 
     // For debugging: print the white area array
     /*
