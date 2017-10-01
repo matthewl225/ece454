@@ -246,17 +246,19 @@ optimized_kv* collapse_sensor_values(struct kv *sensor_values, int sensor_values
 
 /* Use this structure as follows
  *
- * if isWhiteArea[i,j] is true, then the square with corners at (isWhiteAreaStrideX * i, isWhiteAreaStrideY * j, isWhiteAreaStrideX * (i + 1) - 1, isWhiteAreaStrideY * (j + 1) - 1)
+ * if isWhiteArea[i,j] is true, then the square with corners at (isWhiteAreaStride * i, isWhiteAreaStride * j, isWhiteAreaStride * (i + 1) - 1, isWhiteAreaStride * (j + 1) - 1)
  * contains only white pixels and can be optimized as such
  */
 
 #ifdef USE_ISWHITEARRAY
-#define isWhiteAreaStrideX 21 // translates to 64 bytes, each pixel is 3 bytes
-#define isWhiteAreaStrideY 21 // 64 / 3
+#define isWhiteAreaStride 21 // translates to 64 bytes, each pixel is 3 bytes
 bool *isWhiteArea;
+unsigned int numFullStridesX;
+unsigned int numFullStridesY;
+unsigned int middleSquareDimensions;
 bool checkWhiteAreaSquare(unsigned char *buffer_frame, unsigned buffer_pxwidth, unsigned whiteAreaCol, unsigned whiteAreaRow, unsigned pxWidth, unsigned pxHeight) {
-    unsigned row_offset = whiteAreaRow * isWhiteAreaStrideY * buffer_pxwidth * 3;
-    unsigned col_offset = whiteAreaCol * isWhiteAreaStrideX * 3;
+    unsigned row_offset = whiteAreaRow * isWhiteAreaStride * buffer_pxwidth * 3;
+    unsigned col_offset = whiteAreaCol * isWhiteAreaStride * 3;
     for (int row = 0; row < pxHeight; ++row) {
         for (int col = 0; col < pxWidth; ++col) {
             int pixel_index = row_offset + col_offset + row * buffer_pxwidth * 3 + col * 3;
@@ -270,53 +272,141 @@ bool checkWhiteAreaSquare(unsigned char *buffer_frame, unsigned buffer_pxwidth, 
     }
     return false;
 }
-void createIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned height) {
-    unsigned int numStridesX = (width / isWhiteAreaStrideX) + 1; // divide into this many 21x21 pixel squares
-    unsigned int numStridesY = (height / isWhiteAreaStrideY) + 1;
 
-    isWhiteArea = calloc(numStridesX * numStridesY, sizeof(bool));
-    int col_offset;
-    int row_offset = 0;
+// TODO: check this
+void translatePixelToWhiteSpaceArrayIndices(unsigned px_x, unsigned px_y, unsigned px_width, unsigned *ws_x_out, unsigned *ws_y_out) {
+    // if px_x is inside the middle column, return the middle column
+    const unsigned numFullStridesX_div_2 = numFullStridesX / 2;
+    const unsigned numFullStridesY_div_2 = numFullStridesY / 2;
+
+    int test = px_x - (numFullStridesX_div_2 * isWhiteAreaStride);
+    if (test <= middleSquareDimensions && test >= 0) {
+        // inside the middle
+        *ws_x_out = numFullStridesX_div_2;
+    } else if (test < 0) {
+        // left of the middle
+        *ws_x_out = px_x / isWhiteAreaStride;
+    } else if (test > middleSquareDimensions) {
+        // right of the middle
+        *ws_x_out = (numFullStridesX_div_2) + 1 + ((test - middleSquareDimensions) / isWhiteAreaStride);
+    }
+
+    test = px_y - (numFullStridesY_div_2 * isWhiteAreaStride);
+    if (test < middleSquareDimensions && test >= 0) {
+        // inside the middle
+        *ws_y_out = numFullStridesY_div_2 + 1;
+    } else if (test < 0) {
+        // above the middle
+        *ws_y_out = px_y / isWhiteAreaStride;
+    } else if (test >= middleSquareDimensions) {
+        // below the middle
+        *ws_y_out = (numFullStridesY_div_2) + 1 + ((test - middleSquareDimensions) / isWhiteAreaStride);
+    }
+
+}
+
+// returns the top left pixel of the given white space array square
+void translateWhiteSpaceArrayIndicesToPixel(unsigned ws_x, unsigned ws_y, unsigned ws_width, unsigned *px_x_out, unsigned *px_y_out) {
+    *px_x_out = ws_x * isWhiteAreaStride + (ws_x >= numFullStridesX / 2 ? middleSquareDimensions - isWhiteAreaStride : 0);
+    *px_y_out = ws_y * isWhiteAreaStride + (ws_y >= numFullStridesY / 2 ? middleSquareDimensions - isWhiteAreaStride : 0);
+}
+
+void populateIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned height) {
+    unsigned int boolArrayWidth = numFullStridesX + 1;
+    unsigned int boolArrayHeight = numFullStridesY + 1;
+
+    // 500x500 image = 22 21x21 squares with a 38x38 middle square, 38x21 middle column and 21x38 middle row
+    // |11 21-wide squares|38 wide square|11 21-wide squares|
+
     int whiteAreaRow, whiteAreaCol;
-    for (whiteAreaRow = 0; whiteAreaRow < numStridesY - 1; ++whiteAreaRow) {
-        col_offset = 0;
-        for (whiteAreaCol = 0; whiteAreaCol < numStridesX - 1; ++whiteAreaCol) {
+    // upper left corner
+    for (whiteAreaRow = 0; whiteAreaRow < numFullStridesY / 2; ++whiteAreaRow) {
+        for (whiteAreaCol = 0; whiteAreaCol < numFullStridesX / 2; ++whiteAreaCol) {
             // todo: optimize this
-            isWhiteArea[whiteAreaRow * numStridesX + whiteAreaCol] =
-                checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStrideX, isWhiteAreaStrideY);
+            isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+                checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStride, isWhiteAreaStride);
         }
     }
 
-    // do the bottom row of the array, which may not be a full stride in height. Doesn't include bottom right corner
-    unsigned remainingStrideHeight = height % isWhiteAreaStrideY;
-    unsigned remainingStrideWidth = width % isWhiteAreaStrideX;
-    // whiteAreaRow is numStridesY - 1
-    for (whiteAreaCol = 0; whiteAreaCol < numStridesX - 1; ++whiteAreaCol) {
-        isWhiteArea[whiteAreaRow * numStridesX + whiteAreaCol] =
-            checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStrideX, remainingStrideHeight);
+    // bottom left corner
+    for (whiteAreaRow = numFullStridesY / 2 + 1; whiteAreaRow < boolArrayHeight; ++whiteAreaRow) {
+        for (whiteAreaCol = 0; whiteAreaCol < numFullStridesX / 2; ++whiteAreaCol) {
+            // todo: optimize this
+            isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+                checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStride, isWhiteAreaStride);
+        }
     }
 
-    // do the right most column of the array, white may not be a full stride in width. Doesn't include bottom right corner
-    // whiteAreaCol is numStridesX - 1
-    for (whiteAreaRow = 0; whiteAreaRow < numStridesY - 1; ++whiteAreaRow) {
-        isWhiteArea[whiteAreaRow * numStridesX + whiteAreaCol] =
-            checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, remainingStrideWidth, isWhiteAreaStrideY);
+    // top right corner
+    for (whiteAreaRow = 0; whiteAreaRow < numFullStridesY / 2; ++whiteAreaRow) {
+        for (whiteAreaCol = numFullStridesX / 2 + 1; whiteAreaCol < boolArrayWidth; ++whiteAreaCol) {
+            // todo: optimize this
+            isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+                checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStride, isWhiteAreaStride);
+        }
     }
 
-    // do the bottom right corner
-    // whiteAreaRow = numStridesY - 1, whiteAreaCol = numStridesX - 1
-    isWhiteArea[whiteAreaRow * numStridesX + whiteAreaCol] =
-        checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, remainingStrideWidth, remainingStrideHeight);
+    // bottom right corner
+    for (whiteAreaRow = numFullStridesY / 2 + 1; whiteAreaRow < boolArrayHeight; ++whiteAreaRow) {
+        for (whiteAreaCol = numFullStridesX / 2 + 1; whiteAreaCol < boolArrayWidth; ++whiteAreaCol) {
+            // todo: optimize this
+            isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+                checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStride, isWhiteAreaStride);
+        }
+    }
 
-    /* For debugging: print the white area array
-    for (int j = 0; j < numStridesY; j++) {
-        for (int i = 0; i < numStridesX; i++) {
-            printf("%d", isWhiteArea[j * numStridesX + i]);
+    // left middle row
+    whiteAreaRow = numFullStridesY / 2;
+    for (whiteAreaCol = 0; whiteAreaCol < numFullStridesX / 2; ++whiteAreaCol) {
+        // todo: optimize this
+        isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+            checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStride, middleSquareDimensions);
+    }
+
+    // right middle row
+    for (whiteAreaCol = numFullStridesX / 2 + 1; whiteAreaCol < boolArrayWidth; ++whiteAreaCol) {
+        // todo: optimize this
+        isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+            checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStride, middleSquareDimensions);
+    }
+
+    // top center row
+    whiteAreaCol = numFullStridesX / 2;
+    for (whiteAreaRow = 0; whiteAreaRow < numFullStridesY / 2; ++whiteAreaRow) {
+        isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+            checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, middleSquareDimensions, isWhiteAreaStride);
+    }
+
+    // bottom center row
+    whiteAreaCol = numFullStridesX / 2;
+    for (whiteAreaRow = numFullStridesY / 2 + 1; whiteAreaRow < boolArrayHeight; ++whiteAreaRow) {
+        isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+            checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, middleSquareDimensions, isWhiteAreaStride);
+    }
+
+    // middle square
+    whiteAreaCol = numFullStridesY / 2;
+    isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+        checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, middleSquareDimensions, middleSquareDimensions);
+
+    // For debugging: print the white area array
+    /*
+    printf("\n\nWhiteSpaceArray:\n");
+    for (int j = 0; j < boolArrayHeight; j++) {
+        for (int i = 0; i < boolArrayWidth; i++) {
+            printf("%d", isWhiteArea[j * boolArrayWidth + i]);
         }
         printf("\n");
     }
     */
+}
 
+void createIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned height) {
+    numFullStridesX = (width / isWhiteAreaStride / 2 * 2); // divide into this many 21x21 pixel squares. Must be an even number
+    numFullStridesY = (height / isWhiteAreaStride / 2 * 2);
+    middleSquareDimensions = width % (isWhiteAreaStride * 2); // remainder of the above square division.
+    isWhiteArea = calloc((numFullStridesX + 1) * (numFullStridesY + 1), sizeof(bool));
+    populateIsWhiteArea(buffer_frame, width, height);
 }
 #endif
 
