@@ -429,35 +429,22 @@ void createIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned hei
 /* SubSquare Manipulation functions */
 void swapAndMirrorXSubsquares(unsigned char *buffer_frame, unsigned buffer_width, unsigned top_left_pxindex, unsigned top_top_pxindex, unsigned bottom_left_pxindex, unsigned bottom_bottom_pxindex, unsigned subsquare_width, unsigned subsquare_height) {
     const unsigned buffer_width_3 = buffer_width * 3;
-    const unsigned top_left_pxindex_3 = top_left_pxindex * 3;
-    const unsigned bottom_left_pxindex_3 = bottom_left_pxindex * 3;
+    const unsigned subsquare_width_3_sizeof_char = subsquare_width * 3 * sizeof(char);
 
-    unsigned top_row_offset = top_top_pxindex * buffer_width_3;
-    unsigned bottom_row_offset = bottom_bottom_pxindex * buffer_width_3;
-    unsigned tl_index, bl_index;
-    unsigned char temp;
+    // TODO we can make this a purely stack variable once we know an upperbound on subsquare_width
+    unsigned char *temp = malloc(subsquare_width_3_sizeof_char);
+    unsigned char *buffer_tl = buffer_frame + top_top_pxindex * buffer_width_3 + top_left_pxindex * 3;
+    unsigned char *buffer_bl = buffer_frame + bottom_bottom_pxindex * buffer_width_3 + bottom_left_pxindex * 3;
     for (int i = 0; i < subsquare_height; ++i) {
+        memcpy(temp, buffer_tl, subsquare_width_3_sizeof_char);
+        memcpy(buffer_tl, buffer_bl, subsquare_width_3_sizeof_char);
+        memcpy(buffer_bl, temp, subsquare_width_3_sizeof_char);
         // move to first element of next row down
-        tl_index = top_left_pxindex_3 + top_row_offset;
+        buffer_tl += buffer_width_3;
         // move to last element of next row down
-        bl_index = bottom_left_pxindex_3 + bottom_row_offset;
-        for (int j = 0; j < subsquare_width; ++j) {
-            // swap red values of top and bottom
-            temp = buffer_frame[tl_index];
-            buffer_frame[tl_index++] = buffer_frame[bl_index];
-            buffer_frame[bl_index++] = temp;
-            // swap blue values of top and bottom
-            temp = buffer_frame[tl_index];
-            buffer_frame[tl_index++] = buffer_frame[bl_index];
-            buffer_frame[bl_index++] = temp;
-            // swap green values of top and bottom
-            temp = buffer_frame[tl_index];
-            buffer_frame[tl_index++] = buffer_frame[bl_index];
-            buffer_frame[bl_index++] = temp;
-        }
-        top_row_offset += buffer_width_3;
-        bottom_row_offset -= buffer_width_3;
+        buffer_bl -= buffer_width_3;
     }
+    free(temp);
 }
 
 void swapAndMirrorYSubsquares(unsigned char *buffer_frame, unsigned buffer_width, unsigned left_left_pxindex, unsigned left_top_pxindex, unsigned right_right_pxindex, unsigned right_top_pxindex, unsigned subsquare_width, unsigned subsquare_height) {
