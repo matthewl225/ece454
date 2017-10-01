@@ -47,7 +47,7 @@ int insert_mirror_frames(optimized_kv *collapsed_sensor_values, int new_count, b
     }
     return new_count;
 }
-    
+
 int insert_rotation_frames(optimized_kv *collapsed_sensor_values, int new_count, int total_clockwise_rotation) {
     total_clockwise_rotation = (total_clockwise_rotation % 4);
     // ecr is between -3 and +3
@@ -69,6 +69,7 @@ int insert_rotation_frames(optimized_kv *collapsed_sensor_values, int new_count,
     }
     return new_count;
 }
+
 int insert_translation_frames(optimized_kv *collapsed_sensor_values, int new_count, int total_up_movement, int total_right_movement) {
     if (total_up_movement > 0) {
         collapsed_sensor_values[new_count].type = W;
@@ -426,6 +427,38 @@ void createIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned hei
 /* End White Pixel Optimization Structures */
 
 /* SubSquare Manipulation functions */
+void swapAndMirrorXSubsquares(unsigned char *buffer_frame, unsigned buffer_width, unsigned top_left_pxindex, unsigned top_top_pxindex, unsigned bottom_left_pxindex, unsigned bottom_bottom_pxindex, unsigned subsquare_width, unsigned subsquare_height) {
+    const unsigned buffer_width_3 = buffer_width * 3;
+    const unsigned top_left_pxindex_3 = top_left_pxindex * 3;
+    const unsigned bottom_left_pxindex_3 = bottom_left_pxindex * 3;
+
+    unsigned top_row_offset = top_top_pxindex * buffer_width_3;
+    unsigned bottom_row_offset = bottom_bottom_pxindex * buffer_width_3;
+    unsigned tl_index, bl_index;
+    unsigned char temp;
+    for (int i = 0; i < subsquare_height; ++i) {
+        // move to first element of next row down
+        tl_index = top_left_pxindex_3 + top_row_offset;
+        // move to last element of next row down
+        bl_index = bottom_left_pxindex_3 + bottom_row_offset;
+        for (int j = 0; j < subsquare_width; ++j) {
+            // swap red values of top and bottom
+            temp = buffer_frame[tl_index];
+            buffer_frame[tl_index++] = buffer_frame[bl_index];
+            buffer_frame[bl_index++] = temp;
+            // swap blue values of top and bottom
+            temp = buffer_frame[tl_index];
+            buffer_frame[tl_index++] = buffer_frame[bl_index];
+            buffer_frame[bl_index++] = temp;
+            // swap green values of top and bottom
+            temp = buffer_frame[tl_index];
+            buffer_frame[tl_index++] = buffer_frame[bl_index];
+            buffer_frame[bl_index++] = temp;
+        }
+        top_row_offset += buffer_width_3;
+        bottom_row_offset -= buffer_width_3;
+    }
+}
 
 void swapAndMirrorYSubsquares(unsigned char *buffer_frame, unsigned buffer_width, unsigned left_left_pxindex, unsigned left_top_pxindex, unsigned right_right_pxindex, unsigned right_top_pxindex, unsigned subsquare_width, unsigned subsquare_height) {
     const unsigned buffer_width_3 = buffer_width * 3;
@@ -460,11 +493,13 @@ void swapAndMirrorYSubsquares(unsigned char *buffer_frame, unsigned buffer_width
     */
 
     // printf("MirrorY swapping the square at tl(%d,%d) with the square tr(%d,%d)\n", left_left_pxindex, left_top_pxindex, right_right_pxindex, right_top_pxindex);
+    unsigned left_row_offset = left_top_pxindex * buffer_width_3;
+    unsigned right_row_offset = right_top_pxindex * buffer_width_3;
     for (int i = 0; i < subsquare_height; ++i) {
         // move to first element of next row down
-        ll_index = left_left_pxindex_3 + (left_top_pxindex + i) * buffer_width_3;
+        ll_index = left_left_pxindex_3 + left_row_offset;
         // move to last element of next row down
-        rr_index = right_right_pxindex_3 + (right_top_pxindex + i) * buffer_width_3;
+        rr_index = right_right_pxindex_3 + right_row_offset;
         for (int j = 0; j < subsquare_width; ++j) {
             // swap red values of left and right, in mirrored x order
             // printf("\tSwapping red values located at %d(%d) and %d(%d)\n", ll_index, buffer_frame[ll_index], rr_index, buffer_frame[rr_index]);
@@ -484,6 +519,8 @@ void swapAndMirrorYSubsquares(unsigned char *buffer_frame, unsigned buffer_width
 
             rr_index -= 5; // move to the red value of the previous pixel on the right side frame
         }
+        left_row_offset += buffer_width_3;
+        right_row_offset += buffer_width_3;
         // printf("----\n");
     }
     /*
@@ -674,7 +711,9 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
  * @return
  **********************************************************************************************************************/
 unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, unsigned int height, int _unused) {
-    return processMirrorXReference(buffer_frame, width, height, _unused);
+    // return processMirrorXReference(buffer_frame, width, height, _unused);
+    swapAndMirrorXSubsquares(buffer_frame, width, 0, 0, 0, height-1, width, height/2);
+    return buffer_frame;
 }
 
 /***********************************************************************************************************************
