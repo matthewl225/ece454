@@ -114,7 +114,6 @@ optimized_kv* collapse_sensor_values(struct kv *sensor_values, int sensor_values
         sensor_value_value = sensor_value->value;
         sensor_value_key = sensor_value->key;
         type = sensor_value_key[0] + sensor_value_key[1];
-        printf("(%d) %d: %d", i, type, sensor_value_value);
         switch (type) {
         case MX:
             is_X_mirrored = !is_X_mirrored;
@@ -418,30 +417,6 @@ void swapAndMirrorYSubsquares(unsigned char *buffer_frame, unsigned buffer_width
     unsigned ll_index, rr_index;
     unsigned char temp;
 
-    /*
-    printf("\n\nOld Left Square:\n");
-    for (int i = 0; i < subsquare_height; i++) {
-        for (int j = 0; j < subsquare_width; j++){
-            unsigned char r = buffer_frame[left_left_pxindex_3 + i*buffer_width_3 + j * 3];
-            unsigned char g = buffer_frame[left_left_pxindex_3 + i*buffer_width_3 + j * 3 + 1];
-            unsigned char b = buffer_frame[left_left_pxindex_3 + i*buffer_width_3 + j * 3 + 2];
-            printf("(%d,%d,%d)", r, g, b);
-        }
-        printf("\n");
-    }
-    printf("Old Right Square:\n");
-    unsigned int right_left_pxindex = right_right_pxindex - subsquare_width + 1;
-    for (int i = 0; i < subsquare_height; i++) {
-        for (int j = 0; j < subsquare_width; j++){
-            unsigned char r = buffer_frame[right_left_pxindex * 3 + i*buffer_width_3 + j*3];
-            unsigned char g = buffer_frame[right_left_pxindex * 3 + i*buffer_width_3 + j*3 + 1];
-            unsigned char b = buffer_frame[right_left_pxindex * 3 + i*buffer_width_3 + j*3 + 2];
-            printf("(%d,%d,%d)", r, g, b);
-        }
-        printf("\n");
-    }
-    */
-
     // printf("MirrorY swapping the square at tl(%d,%d) with the square tr(%d,%d)\n", left_left_pxindex, left_top_pxindex, right_right_pxindex, right_top_pxindex);
     unsigned left_row_offset = left_top_pxindex * buffer_width_3;
     unsigned right_row_offset = right_top_pxindex * buffer_width_3;
@@ -473,29 +448,6 @@ void swapAndMirrorYSubsquares(unsigned char *buffer_frame, unsigned buffer_width
         right_row_offset += buffer_width_3;
         // printf("----\n");
     }
-    /*
-    printf("\nNew Left Square:\n");
-    for (int i = 0; i < subsquare_height; i++) {
-        for (int j = 0; j < subsquare_width; j++){
-            unsigned char r = buffer_frame[left_left_pxindex_3 + i*buffer_width_3 + j * 3];
-            unsigned char g = buffer_frame[left_left_pxindex_3 + i*buffer_width_3 + j * 3 + 1];
-            unsigned char b = buffer_frame[left_left_pxindex_3 + i*buffer_width_3 + j * 3 + 2];
-            printf("(%d,%d,%d)", r, g, b);
-        }
-        printf("\n");
-    }
-    printf("New Right Square:\n");
-    right_left_pxindex = right_right_pxindex - subsquare_width + 1;
-    for (int i = 0; i < subsquare_height; i++) {
-        for (int j = 0; j < subsquare_width; j++){
-            unsigned char r = buffer_frame[right_left_pxindex * 3 + i*buffer_width_3 + j*3];
-            unsigned char g = buffer_frame[right_left_pxindex * 3 + i*buffer_width_3 + j*3 + 1];
-            unsigned char b = buffer_frame[right_left_pxindex * 3 + i*buffer_width_3 + j*3 + 2];
-            printf("(%d,%d,%d)", r, g, b);
-        }
-        printf("\n");
-    }
-    */
 }
 
 
@@ -661,7 +613,6 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
  * @return
  **********************************************************************************************************************/
 unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, unsigned int height, int _unused) {
-    return processMirrorXReference(buffer_frame, width, height, _unused);
     // return processMirrorXReference(buffer_frame, width, height, _unused);
     swapAndMirrorXSubsquares(buffer_frame, width, 0, 0, 0, height-1, width, height/2);
     // TODO: once everything is done in-place, wont need this return anymore
@@ -676,11 +627,10 @@ unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, u
  * @return
  **********************************************************************************************************************/
 unsigned char *processMirrorY(unsigned char *buffer_frame, unsigned width, unsigned height, int _unused) {
-    return processMirrorYReference(buffer_frame, width, height, _unused);
     // TODO: only swap and mirror non-white squares.
-    // swapAndMirrorYSubsquares(buffer_frame, width, 0, 0, width-1, 0, width/2, height);
+    swapAndMirrorYSubsquares(buffer_frame, width, 0, 0, width-1, 0, width/2, height);
     // TODO: once everything is done in-place, wont need this return anymore
-    // return buffer_frame;
+    return buffer_frame;
 }
 
 /***********************************************************************************************************************
@@ -729,15 +679,16 @@ void print_team_info(){
  **********************************************************************************************************************/
 void implementation_driver(struct kv *sensor_values, int sensor_values_count, unsigned char *frame_buffer,
                            unsigned int width, unsigned int height, bool grading_mode) {
-    printf("Hello World");
     int processed_frames = 0;
     rendered_frame = allocateFrame(width, height);
     int collapsed_sensor_values_count = 0;
     optimized_kv *collapsed_sensor_values = collapse_sensor_values(sensor_values, sensor_values_count, &collapsed_sensor_values_count);
+    /*
     printf("Original Sensor number: %d, New Sensor Count: %d\n", sensor_values_count, collapsed_sensor_values_count);
     for (int i = 0; i < collapsed_sensor_values_count; ++i) {
         printf("\tCommand: %d Value: %d\n", collapsed_sensor_values[i].type, collapsed_sensor_values[i].value);
     }
+    */
     #ifdef USE_ISWHITEARRAY
     createIsWhiteArea(frame_buffer, width, height);
     #endif
