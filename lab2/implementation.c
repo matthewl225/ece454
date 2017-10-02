@@ -128,11 +128,6 @@ optimized_kv* collapse_sensor_values(struct kv *sensor_values, int sensor_values
             if (is_X_mirrored) sensor_value_value *= -1;
             if (is_Y_mirrored) sensor_value_value *= -1;
             total_clockwise_rotation = (total_clockwise_rotation + sensor_value_value) % 4;
-            if ((total_clockwise_rotation == 2 || total_clockwise_rotation == -2) && is_X_mirrored && is_Y_mirrored) {
-                is_X_mirrored = false;
-                is_Y_mirrored = false;
-                total_clockwise_rotation = 0;
-            }
             break;
         case S:
             sensor_value_value *= -1;
@@ -202,6 +197,7 @@ optimized_kv* collapse_sensor_values(struct kv *sensor_values, int sensor_values
     *new_sensor_value_count = new_count;
     return collapsed_sensor_values;
 }
+
 /* END SENSOR COLLAPSING CODE */
 
 
@@ -461,6 +457,7 @@ void swapAndMirrorYSubsquares(unsigned char *buffer_frame, unsigned buffer_width
  * Note2: You can assume the object will never be moved off the screen
  **********************************************************************************************************************/
 unsigned char *processMoveUp(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
+    return processMoveUpReference(buffer_frame, width, height, offset);
     // store shifted pixels to temporary buffer
     for (int row = 0; row < (height - offset); row++) {
         for (int column = 0; column < width; column++) {
@@ -499,6 +496,7 @@ unsigned char *processMoveUp(unsigned char *buffer_frame, unsigned width, unsign
  * Note2: You can assume the object will never be moved off the screen
  **********************************************************************************************************************/
 unsigned char *processMoveRight(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
+    return processMoveRightReference(buffer_frame, width, height, offset);
     // store shifted pixels to temporary buffer
     for (int row = 0; row < height; row++) {
         for (int column = offset; column < width; column++) {
@@ -539,6 +537,7 @@ unsigned char *processMoveRight(unsigned char *buffer_frame, unsigned width, uns
  **********************************************************************************************************************/
 unsigned char *processMoveDown(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
     // store shifted pixels to temporary buffer
+    return processMoveDownReference(buffer_frame, width, height, offset);
     for (int row = offset; row < height; row++) {
         for (int column = 0; column < width; column++) {
             int position_rendered_frame = row * width * 3 + column * 3;
@@ -613,7 +612,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
  * @return
  **********************************************************************************************************************/
 unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, unsigned int height, int _unused) {
-    // return processMirrorXReference(buffer_frame, width, height, _unused);
+    return processMirrorXReference(buffer_frame, width, height, _unused);
     swapAndMirrorXSubsquares(buffer_frame, width, 0, 0, 0, height-1, width, height/2);
     // TODO: once everything is done in-place, wont need this return anymore
     return buffer_frame;
@@ -627,6 +626,7 @@ unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, u
  * @return
  **********************************************************************************************************************/
 unsigned char *processMirrorY(unsigned char *buffer_frame, unsigned width, unsigned height, int _unused) {
+    return processMirrorYReference(buffer_frame, width, height, _unused);
     // TODO: only swap and mirror non-white squares.
     swapAndMirrorYSubsquares(buffer_frame, width, 0, 0, width-1, 0, width/2, height);
     // TODO: once everything is done in-place, wont need this return anymore
