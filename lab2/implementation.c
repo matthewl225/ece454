@@ -114,6 +114,7 @@ optimized_kv* collapse_sensor_values(struct kv *sensor_values, int sensor_values
         sensor_value_value = sensor_value->value;
         sensor_value_key = sensor_value->key;
         type = sensor_value_key[0] + sensor_value_key[1];
+        printf("(%d) %d: %d", i, type, sensor_value_value);
         switch (type) {
         case MX:
             is_X_mirrored = !is_X_mirrored;
@@ -660,8 +661,10 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
  * @return
  **********************************************************************************************************************/
 unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, unsigned int height, int _unused) {
+    return processMirrorXReference(buffer_frame, width, height, _unused);
     // return processMirrorXReference(buffer_frame, width, height, _unused);
     swapAndMirrorXSubsquares(buffer_frame, width, 0, 0, 0, height-1, width, height/2);
+    // TODO: once everything is done in-place, wont need this return anymore
     return buffer_frame;
 }
 
@@ -673,30 +676,11 @@ unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, u
  * @return
  **********************************************************************************************************************/
 unsigned char *processMirrorY(unsigned char *buffer_frame, unsigned width, unsigned height, int _unused) {
-    /*
-    printf("original:\n");
-    for (int row = 0; row < height; row++) {
-        for (int column = 0; column < width; column++) {
-            int position_buffer_frame = row * height * 3 + column * 3;
-            printf("(%d,%d,%d)", buffer_frame[position_buffer_frame], buffer_frame[position_buffer_frame + 1], buffer_frame[position_buffer_frame + 2]);
-        }
-        printf("\n");
-    }
-    */
+    return processMirrorYReference(buffer_frame, width, height, _unused);
     // TODO: only swap and mirror non-white squares.
-    swapAndMirrorYSubsquares(buffer_frame, width, 0, 0, width-1, 0, width/2, height);
-    /*
-    printf("mirrored:\n");
-    for (int row = 0; row < height; row++) {
-        for (int column = 0; column < width; column++) {
-            int position_buffer_frame = row * height * 3 + column * 3;
-            printf("(%d,%d,%d)", buffer_frame[position_buffer_frame], buffer_frame[position_buffer_frame + 1], buffer_frame[position_buffer_frame + 2]);
-        }
-        printf("\n");
-    }
-    */
+    // swapAndMirrorYSubsquares(buffer_frame, width, 0, 0, width-1, 0, width/2, height);
     // TODO: once everything is done in-place, wont need this return anymore
-    return buffer_frame;
+    // return buffer_frame;
 }
 
 /***********************************************************************************************************************
@@ -745,16 +729,15 @@ void print_team_info(){
  **********************************************************************************************************************/
 void implementation_driver(struct kv *sensor_values, int sensor_values_count, unsigned char *frame_buffer,
                            unsigned int width, unsigned int height, bool grading_mode) {
+    printf("Hello World");
     int processed_frames = 0;
     rendered_frame = allocateFrame(width, height);
     int collapsed_sensor_values_count = 0;
     optimized_kv *collapsed_sensor_values = collapse_sensor_values(sensor_values, sensor_values_count, &collapsed_sensor_values_count);
-    /*
     printf("Original Sensor number: %d, New Sensor Count: %d\n", sensor_values_count, collapsed_sensor_values_count);
     for (int i = 0; i < collapsed_sensor_values_count; ++i) {
         printf("\tCommand: %d Value: %d\n", collapsed_sensor_values[i].type, collapsed_sensor_values[i].value);
     }
-    */
     #ifdef USE_ISWHITEARRAY
     createIsWhiteArea(frame_buffer, width, height);
     #endif
