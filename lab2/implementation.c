@@ -95,6 +95,96 @@ int insert_translation_frames(optimized_kv *collapsed_sensor_values, int new_cou
 /*
  * @param 
  */
+optimized_kv* collapse_sensor_values2(struct kv *sensor_values, int sensor_values_count, int *new_sensor_value_count) {
+    int new_count = 0;
+    char *sensor_value_key;
+
+    movement_type type;
+    struct kv *sensor_value;
+    optimized_kv *collapsed_sensor_values = (optimized_kv*)malloc(sizeof(optimized_kv) * sensor_values_count);
+    int i = 0;
+    int sensor_value_value;
+    int total_up_movement = 0;
+    int total_right_movement = 0;
+    int total_clockwise_rotation = 0;
+    bool is_X_mirrored = false;
+    bool is_Y_mirrored = false;
+    int temp;
+    while (i < sensor_values_count) {
+        sensor_value = &sensor_values[i];
+        sensor_value_value = sensor_value->value;
+        sensor_value_key = sensor_value->key;
+        type = sensor_value_key[0] + sensor_value_key[1];
+        switch (type) {
+        case CCW:
+            sensor_value_value *= -1;
+        case CW:
+            sensor_value_value = sensor_value_value % 4;
+            total_clockwise_rotation = (total_clockwise_rotation + sensor_value_value) % 4;
+            switch(sensor_value_value) {
+            case 1:
+            case -3:
+                temp = is_X_mirrored;
+                is_X_mirrored = is_Y_mirrored;
+                is_Y_mirrored = temp;
+                temp = total_right_movement;
+                total_right_movement = total_up_movement;
+                total_up_movement = -temp;
+                break;
+            case 3:
+            case -1:
+                temp = is_X_mirrored;
+                is_X_mirrored = is_Y_mirrored;
+                is_Y_mirrored = temp;
+                temp = total_right_movement;
+                total_right_movement = -total_up_movement;
+                total_up_movement = temp;
+                break;
+            case 2:
+            case -2:
+                total_right_movement *= -1;
+                total_up_movement *= -1;
+                break;
+            }
+            break;
+        case MX:
+            is_X_mirrored = !is_X_mirrored;
+            total_up_movement *= -1;
+            break;
+        case MY:
+            is_Y_mirrored = !is_Y_mirrored;
+            total_right_movement *= -1;
+            break;
+        case S:
+            total_up_movement -= sensor_value_value;
+            break;
+        case W:
+            total_up_movement += sensor_value_value;
+            break;
+        case A:
+            total_right_movement -= sensor_value_value;
+            break;
+        case D:
+            total_right_movement += sensor_value_value;
+            break;
+        }
+        ++i;
+        if (i % 25 == 0) {
+            new_count = insert_rotation_frames(collapsed_sensor_values, new_count, total_clockwise_rotation);
+            new_count = insert_mirror_frames(collapsed_sensor_values, new_count, is_X_mirrored, is_Y_mirrored);
+            new_count = insert_translation_frames(collapsed_sensor_values, new_count, total_up_movement, total_right_movement);
+            total_clockwise_rotation = 0;
+            total_up_movement = 0;
+            total_right_movement = 0;
+            is_X_mirrored = false;
+            is_Y_mirrored = false;
+            collapsed_sensor_values[new_count].type = FRAME_BREAK;
+            collapsed_sensor_values[new_count++].value = 0;
+        }
+    }
+    *new_sensor_value_count = new_count;
+    return collapsed_sensor_values;
+}
 optimized_kv* collapse_sensor_values(struct kv *sensor_values, int sensor_values_count, int *new_sensor_value_count) {
     int new_count = 0;
     char *sensor_value_key;
@@ -682,7 +772,7 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
     int processed_frames = 0;
     rendered_frame = allocateFrame(width, height);
     int collapsed_sensor_values_count = 0;
-    optimized_kv *collapsed_sensor_values = collapse_sensor_values(sensor_values, sensor_values_count, &collapsed_sensor_values_count);
+    optimized_kv *collapsed_sensor_values = collapse_sensor_values2(sensor_values, sensor_values_count, &collapsed_sensor_values_count);
     /*
     printf("Original Sensor number: %d, New Sensor Count: %d\n", sensor_values_count, collapsed_sensor_values_count);
     for (int i = 0; i < collapsed_sensor_values_count; ++i) {
