@@ -7,10 +7,11 @@
 
 // Configuration parameters, uncomment them to turn them on
 // #define USE_ISWHITEARRAY
+// #define USE_INSTRUCTIONCONDENSER
 
-// TODO: can be removed once everything is done in-place
 unsigned char *rendered_frame;
 
+// TODO: can be removed once everything is done in-place
 /* SENSOR COLLAPSING CODE */
 
 /* to convert chars to movement_type:
@@ -28,6 +29,7 @@ typedef enum {
     FRAME_BREAK = 0,
 } movement_type;
 
+#ifdef USE_INSTRUCTIONCONDENSER
 typedef struct {
     movement_type type;
     int value;
@@ -287,7 +289,7 @@ optimized_kv* collapse_sensor_values(struct kv *sensor_values, int sensor_values
     *new_sensor_value_count = new_count;
     return collapsed_sensor_values;
 }
-
+#endif
 /* END SENSOR COLLAPSING CODE */
 
 
@@ -769,10 +771,11 @@ void print_team_info(){
  **********************************************************************************************************************/
 void implementation_driver(struct kv *sensor_values, int sensor_values_count, unsigned char *frame_buffer,
                            unsigned int width, unsigned int height, bool grading_mode) {
-    int processed_frames = 0;
     rendered_frame = allocateFrame(width, height);
+    #ifdef USE_INSTRUCTIONCONDENSER
     int collapsed_sensor_values_count = 0;
     optimized_kv *collapsed_sensor_values = collapse_sensor_values2(sensor_values, sensor_values_count, &collapsed_sensor_values_count);
+    #endif
     /*
     printf("Original Sensor number: %d, New Sensor Count: %d\n", sensor_values_count, collapsed_sensor_values_count);
     for (int i = 0; i < collapsed_sensor_values_count; ++i) {
@@ -782,6 +785,7 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
     #ifdef USE_ISWHITEARRAY
     createIsWhiteArea(frame_buffer, width, height);
     #endif
+    #ifdef USE_INSTRUCTIONCONDENSER
     for (int i = 0; i < collapsed_sensor_values_count; ++i) {
         switch(collapsed_sensor_values[i].type) {
             case   W: frame_buffer = processMoveUp(frame_buffer, width, height, collapsed_sensor_values[i].value); break;
@@ -795,10 +799,34 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
             case FRAME_BREAK: verifyFrame(frame_buffer, width, height, grading_mode); break;
         }
     }
+    #else
+    struct kv *sensor_value;
+    movement_type type;
+    for (int i = 0; i < sensor_values_count;) {
+        sensor_value = &sensor_values[i];
+        type = sensor_value->key[0] + sensor_value->key[1];
+        switch(type) {
+            case   W: frame_buffer = processMoveUp(frame_buffer, width, height, sensor_value->value); break;
+            case   A: frame_buffer = processMoveLeft(frame_buffer, width, height, sensor_value->value); break;
+            case   S: frame_buffer = processMoveDown(frame_buffer, width, height, sensor_value->value); break;
+            case   D: frame_buffer = processMoveRight(frame_buffer, width, height, sensor_value->value); break;
+            case  CW: frame_buffer = processRotateCW(frame_buffer, width, height, sensor_value->value); break;
+            case CCW: frame_buffer = processRotateCCW(frame_buffer, width, height, sensor_value->value); break;
+            case  MX: frame_buffer = processMirrorX(frame_buffer, width, height, sensor_value->value); break;
+            case  MY: frame_buffer = processMirrorY(frame_buffer, width, height, sensor_value->value); break;
+        }
+        ++i;
+        if (i % 25 == 0) {
+            verifyFrame(frame_buffer, width, height, grading_mode);
+        }
+    }
+    #endif
     #ifdef USE_ISWHITEARRAY
     free(isWhiteArea);
     #endif
+    #ifdef USE_INSTRUCTIONCONDENSER
     free(collapsed_sensor_values);
+    #endif
     deallocateFrame(rendered_frame);
     return;
 }
