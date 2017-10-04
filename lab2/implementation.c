@@ -242,7 +242,7 @@ void moveRectInlineRotate90CCW(unsigned char* buffer_frame, unsigned buffer_widt
         src_base += buffer_width_3;
         src = src_base;
         // move dst to the bottom row and next column over
-        dst_base++;
+        dst_base += 3;
         dst = dst_base;
     }
 }
@@ -270,6 +270,7 @@ void moveRectInlineRotate180(unsigned char* buffer_frame, unsigned buffer_width,
     }
 }
 
+// assuming dst and src don't overlap
 void moveRectInlineRotate90CW(unsigned char* buffer_frame, unsigned buffer_width, unsigned src_pxx, unsigned src_pxy, unsigned dst_pxx, unsigned dst_pxy, unsigned cpy_width, unsigned cpy_height) {
     const unsigned buffer_width_3 = buffer_width * 3;
     unsigned char *src_base = buffer_frame + buffer_width_3 * src_pxy + (src_pxx + cpy_width - 1) * 3; // first row last col
@@ -288,21 +289,93 @@ void moveRectInlineRotate90CW(unsigned char* buffer_frame, unsigned buffer_width
         src_base += buffer_width_3;
         src = src_base;
         // move dst to the bottom row and next column to the left
-        dst_base--;
+        dst_base -= 3;
         dst = dst_base;
     }
 }
 
-void moveTempToBufferRotate90CW();
-void moveTempToBufferRotate180();
-void moveTempToBufferRotate90CCW();
+// we know that dst and src don't overlap
+void moveTempToBufferRotate90CW(unsigned char* buffer_frame, unsigned char *temp, unsigned buffer_width, unsigned dst_pxx, unsigned dst_pxy, unsigned temp_width, unsigned temp_height) {
+    const unsigned buffer_width_3 = buffer_width * 3;
+    const unsigned temp_width_3 = temp_width * 3;
+
+    unsigned char *src_base = temp + temp_width_3 - 3; // top row, last col
+    unsigned char *dst_base = buffer_frame  + buffer_width_3 * (dst_pxy + temp_height - 1) + (dst_pxx + temp_width - 1) * 3; // bottom row, last col
+    unsigned char *src = src_base;
+    unsigned char *dst = dst_base;
+    for (int row = 0; row < temp_height; ++row) {
+        for (int col = 0; col < temp_width; ++col) {
+            dst[0] = src[0];
+            dst[1] = src[1];
+            dst[2] = src[2];
+            dst -= buffer_width_3; // move up 1 row
+            src -= 3; // move left 1 column
+        }
+        // move dst next col left, last row
+        dst_base -= 3;
+        dst = dst_base;
+        // move src next row down, last col
+        src_base -= temp_width_3;
+        src = src_base;
+    }
+    
+}
+void moveTempToBufferRotate180(unsigned char* buffer_frame, unsigned char *temp, unsigned buffer_width, unsigned dst_pxx, unsigned dst_pxy, unsigned temp_width, unsigned temp_height) {
+    const unsigned buffer_width_3 = buffer_width * 3;
+    const unsigned temp_width_3 = temp_width * 3;
+
+    unsigned char *src_base = temp + temp_width_3 - 3; // top row, last col
+    unsigned char *dst_base = buffer_frame  + buffer_width_3 * (dst_pxy + temp_height - 1) + dst_pxx * 3; // bottom row, first col
+    unsigned char *src = src_base;
+    unsigned char *dst = dst_base;
+    for (int row = 0; row < temp_height; ++row) {
+        for (int col = 0; col < temp_width; ++col) {
+            dst[0] = src[0];
+            dst[1] = src[1];
+            dst[2] = src[2];
+            dst += 3; // move right 1 column
+            src -= 3; // move left 1 column
+        }
+        // move dst next row up, first column
+        dst_base -= buffer_width_3;
+        dst = dst_base;
+        // move src next row down, last col
+        src_base -= temp_width_3;
+        src = src_base;
+    }
+}
+
+void moveTempToBufferRotate90CCW(unsigned char* buffer_frame, unsigned char *temp, unsigned buffer_width, unsigned dst_pxx, unsigned dst_pxy, unsigned temp_width, unsigned temp_height) {
+    const unsigned buffer_width_3 = buffer_width * 3;
+    const unsigned temp_width_3 = temp_width * 3;
+
+    unsigned char *src_base = temp; // top row, first col
+    unsigned char *dst_base = buffer_frame  + buffer_width_3 * (dst_pxy + temp_height - 1) + dst_pxx * 3; // bottom row, first col
+    unsigned char *src = src_base;
+    unsigned char *dst = dst_base;
+    for (int row = 0; row < temp_height; ++row) {
+        for (int col = 0; col < temp_width; ++col) {
+            dst[0] = src[0];
+            dst[1] = src[1];
+            dst[2] = src[2];
+            dst -= buffer_width_3; // move up 1 row
+            src += 3; // move right 1 column
+        }
+        // move dst col left, bottom row
+        dst_base += 3;
+        dst = dst_base;
+        // move src next row down, first col
+        src_base -= temp_width_3;
+        src = src_base;
+    }
+}
 
 void moveRectTemp(unsigned char* buffer_frame, unsigned char *temp, unsigned buffer_width, unsigned src_pxx, unsigned src_pxy, unsigned cpy_width, unsigned cpy_height) {
     const unsigned buffer_width_3 = buffer_width * 3;
     const unsigned cpy_width_3 = cpy_width * 3;
 
-    unsigned char *src = buffer_frame + buffer_width_3 * src_pxy + src_pxx * 3;
-    unsigned char *dst = temp;
+    unsigned char *src = buffer_frame + buffer_width_3 * src_pxy + src_pxx * 3; // top left pixel of src
+    unsigned char *dst = temp; // 0,0 index of temp
     for (int i = 0; i < cpy_height; ++i) {
         // memcpy row by row
         // we can safely memcpy because temp is assumed to be a separate array from buffer_frame
@@ -719,8 +792,9 @@ unsigned char *processMoveLeft(unsigned char *buffer_frame, unsigned width, unsi
 unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsigned height,
                                int rotate_iteration) {
     return processRotateCWReference(buffer_frame, width, height, rotate_iteration);
+#ifdef USE_ISWHITESPACEARRAY
     // our condenser will limit our CW rotation to 90 deg or 180 deg
-    int whiteArrayWidth = numFullStridesX + (middleSquareWidth != 0);
+    int whiteArrayWidth = numFullStridesX + (middleSquareDimensionsWidth != 0);
     // TODO: write moveAndRotate function
     if (rotate_iteration == 1) {
     // for all TL whiteSpace squares
@@ -801,6 +875,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
         // else if (!TL && !TR && BR && !BL)
         // else if (!TL && !TR && !BR && BL)
     }
+#endif
 }
 
 /***********************************************************************************************************************
