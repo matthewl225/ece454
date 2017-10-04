@@ -94,100 +94,7 @@ int insert_translation_frames(optimized_kv *collapsed_sensor_values, int new_cou
     }
     return new_count;
 }
-/*
- * @param 
- */
-optimized_kv* collapse_sensor_values2(struct kv *sensor_values, int sensor_values_count, int *new_sensor_value_count) {
-    int new_count = 0;
-    char *sensor_value_key;
 
-    movement_type type;
-    struct kv *sensor_value;
-    optimized_kv *collapsed_sensor_values = (optimized_kv*)malloc(sizeof(optimized_kv) * sensor_values_count);
-    int i = 0;
-    int sensor_value_value;
-    int total_up_movement = 0;
-    int total_right_movement = 0;
-    int total_clockwise_rotation = 0;
-    bool is_X_mirrored = false;
-    bool is_Y_mirrored = false;
-    int temp;
-    sensor_values_count = sensor_values_count / 25 * 25; // nearest multiple of 25
-    while (i < sensor_values_count) {
-        sensor_value = &sensor_values[i];
-        sensor_value_value = sensor_value->value;
-        sensor_value_key = sensor_value->key;
-        type = sensor_value_key[0] + sensor_value_key[1];
-        switch (type) {
-        case CCW:
-            sensor_value_value *= -1;
-        case CW:
-            sensor_value_value = sensor_value_value % 4;
-            total_clockwise_rotation = (total_clockwise_rotation + sensor_value_value) % 4;
-            switch(sensor_value_value) {
-            case 1:
-            case -3:
-                temp = is_X_mirrored;
-                is_X_mirrored = is_Y_mirrored;
-                is_Y_mirrored = temp;
-                temp = total_right_movement;
-                total_right_movement = total_up_movement;
-                total_up_movement = -temp;
-                break;
-            case 3:
-            case -1:
-                temp = is_X_mirrored;
-                is_X_mirrored = is_Y_mirrored;
-                is_Y_mirrored = temp;
-                temp = total_right_movement;
-                total_right_movement = -total_up_movement;
-                total_up_movement = temp;
-                break;
-            case 2:
-            case -2:
-                total_right_movement *= -1;
-                total_up_movement *= -1;
-                break;
-            }
-            break;
-        case MX:
-            is_X_mirrored = !is_X_mirrored;
-            total_up_movement *= -1;
-            break;
-        case MY:
-            is_Y_mirrored = !is_Y_mirrored;
-            total_right_movement *= -1;
-            break;
-        case S:
-            total_up_movement -= sensor_value_value;
-            break;
-        case W:
-            total_up_movement += sensor_value_value;
-            break;
-        case A:
-            total_right_movement -= sensor_value_value;
-            break;
-        case D:
-            total_right_movement += sensor_value_value;
-            break;
-        }
-        ++i;
-        if (i % 25 == 0) {
-            new_count = insert_rotation_frames(collapsed_sensor_values, new_count, total_clockwise_rotation);
-            new_count = insert_mirror_frames(collapsed_sensor_values, new_count, is_X_mirrored, is_Y_mirrored);
-            new_count = insert_translation_frames(collapsed_sensor_values, new_count, total_up_movement, total_right_movement);
-            total_clockwise_rotation = 0;
-            total_up_movement = 0;
-            total_right_movement = 0;
-            is_X_mirrored = false;
-            is_Y_mirrored = false;
-            collapsed_sensor_values[new_count].type = FRAME_BREAK;
-            collapsed_sensor_values[new_count++].value = 0;
-        }
-    }
-    *new_sensor_value_count = new_count;
-    return collapsed_sensor_values;
-}
 optimized_kv* collapse_sensor_values(struct kv *sensor_values, int sensor_values_count, int *new_sensor_value_count) {
     int new_count = 0;
     char *sensor_value_key;
@@ -296,166 +203,132 @@ optimized_kv* collapse_sensor_values(struct kv *sensor_values, int sensor_values
     return collapsed_sensor_values;
 }
 
-optimized_kv* collapse_sensor_values3(struct kv *sensor_values, int sensor_values_count, int *new_sensor_value_count) {
-    int new_count = 0;
-    char *sensor_value_key;
-    movement_type type;
-    struct kv *sensor_value;
-    optimized_kv *collapsed_sensor_values = (optimized_kv*)malloc(sizeof(optimized_kv) * sensor_values_count);
-    int i = 0;
-    while (i < sensor_values_count) {
-        // Collapse translations
-        int total_up_movement = 0;
-        int total_right_movement = 0;
-        int last_inserted_rotation = 0;
-        while (i < sensor_values_count) {
-            sensor_value = &sensor_values[i];
-            sensor_value_key = sensor_value->key;
-            type = sensor_value_key[0] + sensor_value_key[1];
-            switch (type) {
-                case W: total_up_movement += sensor_value->value; break;
-                case S: total_up_movement -= sensor_value->value; break;
-                case D: total_right_movement += sensor_value->value; break;
-                case A: total_right_movement -= sensor_value->value; break;
-                default: goto not_translation_1;
-            }
-            ++i;
-            if (i % 25 == 0) {
-                new_count = insert_translation_frames(collapsed_sensor_values, new_count, total_up_movement, total_right_movement);
-                total_up_movement = 0;
-                total_right_movement = 0;
-                collapsed_sensor_values[new_count].type = FRAME_BREAK;
-                collapsed_sensor_values[new_count].value = 0;
-                ++new_count;
-            }
-        }
-    not_translation_1:
-        new_count = insert_translation_frames(collapsed_sensor_values, new_count, total_up_movement, total_right_movement);
-
-
-        // Collapse rotations
-        int total_clockwise_rotation = 0;
-        while (i < sensor_values_count) {
-            sensor_value = &sensor_values[i];
-            sensor_value_key = sensor_value->key;
-            type = sensor_value_key[0] + sensor_value_key[1];
-            switch (type) {
-                case CW: total_clockwise_rotation += sensor_value->value; break;
-                case CCW: total_clockwise_rotation -= sensor_value->value; break;
-                default: goto not_rotation_1;
-            }
-            ++i;
-            if (i % 25 == 0) {
-                new_count = insert_rotation_frames(collapsed_sensor_values, new_count, total_clockwise_rotation);
-                last_inserted_rotation = total_clockwise_rotation % 4;
-                total_clockwise_rotation = 0;
-                collapsed_sensor_values[new_count].type = FRAME_BREAK;
-                collapsed_sensor_values[new_count].value = 0;
-                ++new_count;
-            }
-        }
-
-    not_rotation_1:
-        new_count = insert_rotation_frames(collapsed_sensor_values, new_count, total_clockwise_rotation);
-        last_inserted_rotation = total_clockwise_rotation % 4;
-
-
-        // Collapse mirroring
-        bool is_X_mirrored = 0;
-        bool is_Y_mirrored = 0;
-        while (i < sensor_values_count) {
-            sensor_value = &sensor_values[i];
-            sensor_value_key = sensor_value->key;
-            type = sensor_value_key[0] + sensor_value_key[1];
-            switch (type) {
-                case MX: is_X_mirrored = !is_X_mirrored; break;
-                case MY: is_Y_mirrored = !is_Y_mirrored; break;
-                default: goto not_mirroring_1;
-            }
-            ++i;
-            if (i % 25 == 0) {
-                if (!((last_inserted_rotation == -2 || last_inserted_rotation == 2) && is_X_mirrored && is_Y_mirrored)) {
-                    new_count = insert_mirror_frames(collapsed_sensor_values, new_count, is_X_mirrored, is_Y_mirrored);
-                } else {
-                    // printf("Removed a 180 deg rotation and MX and MY");
-                    new_count--;
-                }
-                is_X_mirrored = false;
-                is_Y_mirrored = false;
-                collapsed_sensor_values[new_count].type = FRAME_BREAK;
-                collapsed_sensor_values[new_count].value = 0;
-                ++new_count;
-            }
-        }
-    not_mirroring_1:
-        if (!((last_inserted_rotation == -2 || last_inserted_rotation == 2) && is_X_mirrored && is_Y_mirrored)) {
-            new_count = insert_mirror_frames(collapsed_sensor_values, new_count, is_X_mirrored, is_Y_mirrored);
-        } else {
-            // printf("Removed a 180 deg rotation and MX and MY");
-            new_count--;
-        }
-    }
-
-    int second_pass_count = 0;
-    i = 0;
-    optimized_kv *second_pass_collapsed_values = (optimized_kv *)malloc(sizeof(optimized_kv) * new_count);
-    while (i < new_count) {
-        int total_up_movement = 0;
-        int total_right_movement = 0;
-        while (i < new_count) {
-            switch (collapsed_sensor_values[i].type) {
-                case W: total_up_movement += collapsed_sensor_values[i].value; break;
-                case A: total_right_movement -= collapsed_sensor_values[i].value; break;
-                case S: total_up_movement -= collapsed_sensor_values[i].value; break;
-                case D: total_right_movement += collapsed_sensor_values[i].value; break;
-                default: goto not_translating_2;
-            }
-            ++i;
-        }
-    not_translating_2:
-        second_pass_count = insert_translation_frames(second_pass_collapsed_values, second_pass_count, total_up_movement, total_right_movement);
-
-        int total_clockwise_rotation = 0;
-        while (i < new_count) {
-            switch(collapsed_sensor_values[i].type) {
-                case CW: total_clockwise_rotation += collapsed_sensor_values[i].value; break;
-                case CCW: total_clockwise_rotation -= collapsed_sensor_values[i].value; break;
-                default: goto not_rotating_2;
-            }
-            ++i;
-        }
-    not_rotating_2:
-        second_pass_count = insert_rotation_frames(second_pass_collapsed_values, second_pass_count, total_clockwise_rotation);
-
-        bool is_X_mirrored = false;
-        bool is_Y_mirrored = false;
-        while (i < new_count) {
-            switch (collapsed_sensor_values[i].type) {
-            case MX: is_X_mirrored = !is_X_mirrored; break;
-            case MY: is_Y_mirrored = !is_Y_mirrored; break;
-            default: goto not_mirrored_2;
-            }
-            ++i;
-        }
-    not_mirrored_2:
-        second_pass_count = insert_mirror_frames(second_pass_collapsed_values, second_pass_count, is_X_mirrored, is_Y_mirrored);
-
-        while (i < new_count && collapsed_sensor_values[i].type == FRAME_BREAK) {
-            second_pass_collapsed_values[second_pass_count].type = FRAME_BREAK;
-            second_pass_collapsed_values[second_pass_count].value = 0;
-            ++second_pass_count;
-            ++i;
-        }
-    }
-    free(collapsed_sensor_values);
-
-
-    *new_sensor_value_count = second_pass_count;
-    return second_pass_collapsed_values;
-}
-
 #endif
 /* END SENSOR COLLAPSING CODE */
+
+/* Helper Functions */
+void moveRectInline(unsigned char* buffer_frame, unsigned buffer_width, unsigned src_pxx, unsigned src_pxy, unsigned dst_pxx, unsigned dst_pxy, unsigned cpy_width, unsigned cpy_height) {
+    const unsigned buffer_width_3 = buffer_width * 3;
+    const unsigned cpy_width_3 = cpy_width * 3;
+
+    unsigned char *src = buffer_frame + buffer_width_3 * src_pxy + src_pxx * 3;
+    unsigned char *dst = buffer_frame + buffer_width_3 * dst_pxy + dst_pxx * 3;
+    for (int i = 0; i < cpy_height; ++i) {
+        // memmove row by row
+        // use memmove because src and dst may overlap (e.g. translations)
+        memmove(dst, src, cpy_width_3);
+        src += buffer_width_3;
+        dst += buffer_width_3;
+    }
+}
+
+// this should only be called with relatively small (20x20) areas
+// also src and dst should not overlap
+void moveRectInlineRotate90CCW(unsigned char* buffer_frame, unsigned buffer_width, unsigned src_pxx, unsigned src_pxy, unsigned dst_pxx, unsigned dst_pxy, unsigned cpy_width, unsigned cpy_height) {
+    const unsigned buffer_width_3 = buffer_width * 3;
+    unsigned char *src_base = buffer_frame + buffer_width_3 * src_pxy + src_pxx * 3;
+    unsigned char *dst_base = buffer_frame + buffer_width_3 * (dst_pxy + cpy_height - 1) + dst_pxx * 3;
+    unsigned char *src = src_base;
+    unsigned char *dst = dst_base;
+    for (int src_col = 0; src_col < cpy_height; ++src_col) {
+        for (int src_row = 0; src_row < cpy_width; ++src_row) {
+            dst[0] = src[0];
+            dst[1] = src[1];
+            dst[2] = src[2];
+            dst -= buffer_width_3;
+            src += 3;
+        }
+        // move src down a row and to the first column
+        src_base += buffer_width_3;
+        src = src_base;
+        // move dst to the bottom row and next column over
+        dst_base++;
+        dst = dst_base;
+    }
+}
+
+void moveRectInlineRotate180(unsigned char* buffer_frame, unsigned buffer_width, unsigned src_pxx, unsigned src_pxy, unsigned dst_pxx, unsigned dst_pxy, unsigned cpy_width, unsigned cpy_height) {
+    const unsigned buffer_width_3 = buffer_width * 3;
+    unsigned char *src_base = buffer_frame + buffer_width_3 * src_pxy + src_pxx * 3; // first row first col
+    unsigned char *dst_base = buffer_frame + buffer_width_3 * (dst_pxy + cpy_height - 1) + (dst_pxx + cpy_width - 1) * 3;// last row last col
+    unsigned char *src = src_base;
+    unsigned char *dst = dst_base;
+    for (int src_col = 0; src_col < cpy_height; ++src_col) {
+        for (int src_row = 0; src_row < cpy_width; ++src_row) {
+            dst[0] = src[0];
+            dst[1] = src[1];
+            dst[2] = src[2];
+            dst -= 3;
+            src += 3;
+        }
+        // move src down a row and to the first column
+        src_base += buffer_width_3;
+        src = src_base;
+        // move dst up a row and to the last column
+        dst_base -= buffer_width_3;
+        dst = dst_base;
+    }
+}
+
+void moveRectInlineRotate90CW(unsigned char* buffer_frame, unsigned buffer_width, unsigned src_pxx, unsigned src_pxy, unsigned dst_pxx, unsigned dst_pxy, unsigned cpy_width, unsigned cpy_height) {
+    const unsigned buffer_width_3 = buffer_width * 3;
+    unsigned char *src_base = buffer_frame + buffer_width_3 * src_pxy + (src_pxx + cpy_width - 1) * 3; // first row last col
+    unsigned char *dst_base = buffer_frame + buffer_width_3 * (dst_pxy + cpy_height - 1) + (dst_pxx + cpy_width - 1) * 3;// last row last col
+    unsigned char *src = src_base;
+    unsigned char *dst = dst_base;
+    for (int src_col = 0; src_col < cpy_height; ++src_col) {
+        for (int src_row = 0; src_row < cpy_width; ++src_row) {
+            dst[0] = src[0];
+            dst[1] = src[1];
+            dst[2] = src[2];
+            dst -= buffer_width_3;
+            src -= 3;
+        }
+        // move src down a row and to the last column
+        src_base += buffer_width_3;
+        src = src_base;
+        // move dst to the bottom row and next column to the left
+        dst_base--;
+        dst = dst_base;
+    }
+}
+
+void moveTempToBufferRotate90CW();
+void moveTempToBufferRotate180();
+void moveTempToBufferRotate90CCW();
+
+void moveRectTemp(unsigned char* buffer_frame, unsigned char *temp, unsigned buffer_width, unsigned src_pxx, unsigned src_pxy, unsigned cpy_width, unsigned cpy_height) {
+    const unsigned buffer_width_3 = buffer_width * 3;
+    const unsigned cpy_width_3 = cpy_width * 3;
+
+    unsigned char *src = buffer_frame + buffer_width_3 * src_pxy + src_pxx * 3;
+    unsigned char *dst = temp;
+    for (int i = 0; i < cpy_height; ++i) {
+        // memcpy row by row
+        // we can safely memcpy because temp is assumed to be a separate array from buffer_frame
+        memcpy(dst, src, cpy_width_3);
+        src += buffer_width_3;
+        dst += cpy_width_3;
+    }
+}
+
+void moveTempToBuffer(unsigned char* buffer_frame, unsigned char *temp, unsigned buffer_width, unsigned dst_pxx, unsigned dst_pxy, unsigned temp_width, unsigned temp_height) {
+    const unsigned temp_width_3 = temp_width * 3;
+    const unsigned buffer_width_3 = buffer_width * 3;
+
+    unsigned char *src = temp;
+    unsigned char *dst = buffer_frame + buffer_width_3 * dst_pxy + dst_pxx * 3;
+    for (int i = 0; i < temp_height; ++i) {
+        // memcpy row by row
+        // we can safely memcpy because temp is assumed to be a separate array from buffer_frame
+        memcpy(dst, src, temp_width_3);
+        dst += buffer_width_3;
+        src += temp_width_3;
+    }
+}
+
+
+/* End Helper Functions */
 
 
 /* White Pixel Optimization Structures */
