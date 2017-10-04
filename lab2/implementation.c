@@ -51,10 +51,10 @@ int insert_mirror_frames(optimized_kv *collapsed_sensor_values, int new_count, b
 }
 
 int insert_rotation_frames(optimized_kv *collapsed_sensor_values, int new_count, int total_clockwise_rotation) {
+    // tcr is between -3 and +3
     total_clockwise_rotation = (total_clockwise_rotation % 4);
-    // ecr is between -3 and +3
-    // if ecr is 3 or -1, ccw
-    // else if ecr != 0, cw
+    // if tcr is 3 or -1, ccw
+    // else if tcr != 0, cw
     if (total_clockwise_rotation == 3 || total_clockwise_rotation == -1) { // CCW
         collapsed_sensor_values[new_count].type = CCW;
         collapsed_sensor_values[new_count].value = 1;
@@ -464,11 +464,11 @@ bool checkWhiteAreaSquare(unsigned char *buffer_frame, unsigned buffer_pxwidth, 
                 buffer_frame[pixel_index + 1] != 255 ||
                 buffer_frame[pixel_index + 2] != 255)
             {
-                return true;
+                return false;
             }
         }
     }
-    return false;
+    return true;
 }
 
 void translatePixelToWhiteSpaceArrayIndices(unsigned px_x, unsigned px_y, unsigned px_width, unsigned *ws_x_out, unsigned *ws_y_out) {
@@ -828,6 +828,88 @@ unsigned char *processMoveLeft(unsigned char *buffer_frame, unsigned width, unsi
 unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsigned height,
                                int rotate_iteration) {
     return processRotateCWReference(buffer_frame, width, height, rotate_iteration);
+    // our condenser will limit our CW rotation to 90 deg or 180 deg
+    int whiteArrayWidth = numFullStridesX + (middleSquareWidth != 0);
+    // TODO: write moveAndRotate function
+    if (rotate_iteration == 1) {
+    // for all TL whiteSpace squares
+        // get associated TL, BL, BR, TR whiteSpace values
+        // rotate 90 deg
+        // if (!TL && !BL && !BR && !TR) continue;
+        // if (TL && BL && BR && TR) write BL into temp buffer, write BR into BL, TR into BR, TL into TR, temp into TL
+        // else if (TL && !TR && BR && BL) write TL into TR, BL into TL, BR into BL, blank BL
+        // else if (TL && TR && !BR && BL) write TR into BR, write TL into TR, write BL into TL, blank BL
+        // else if (TL && TR && BR && !BL) write BR into BL, write TR into BR, write TL into TR, blank TR
+        // else if (TL && TR && !BR && !BL) write TR into BR, write TL into TR, blank TL
+        // else if (TL && !TR && BR && !BL) write TL into TR, write BR into BL, blank TL, blank BR
+        // else if (TL && !TR && !BR && BL) write TL into TR, write BL into TL, blank BL
+        // else if (TL && !TR && !BR && !BL) write TL into TR, blank TL
+        // else if (!TL && TR && BR && BL) write BL into TL, write BR into BL, write TR into BR, blank TR
+        // else if (!TL && !TR && BR && BL) write BL into TR, write BR into BL, blank BR
+        // else if (!TL && TR && !BR && BL) write TR into BR, write BL into TL, blank TL, blank TR
+        // else if (!TL && TR && BR && !BL) write BR into BL, write TR into BR, blank TR
+        // else if (!TL && TR && !BR && !BL) write TR into BR, blank TR
+        // else if (!TL && !TR && BR && !BL) write BR into BL, blank BR
+        // else if (!TL && !TR && !BR && BL) write BL into TL, blank BL
+    // will have to handle middle squares separately
+        // get associated TL, BL, BR, TR whiteSpace values
+        // rotate 90 deg
+        // if (!TL && !BL && !BR && !TR) continue;
+        // if (TL && BL && BR && TR) write BL into temp buffer, write BR into BL, TR into BR, TL into TR, temp into TL
+        // else if (TL && !TR && BR && BL) write TL into TR, BL into TL, BR into BL, blank BL
+        // else if (TL && TR && !BR && BL) write TR into BR, write TL into TR, write BL into TL, blank BL
+        // else if (TL && TR && BR && !BL) write BR into BL, write TR into BR, write TL into TR, blank TR
+        // else if (TL && TR && !BR && !BL) write TR into BR, write TL into TR, blank TL
+        // else if (TL && !TR && BR && !BL) write TL into TR, write BR into BL, blank TL, blank BR
+        // else if (TL && !TR && !BR && BL) write TL into TR, write BL into TL, blank BL
+        // else if (TL && !TR && !BR && !BL) write TL into TR, blank TL
+        // else if (!TL && TR && BR && BL) write BL into TL, write BR into BL, write TR into BR, blank TR
+        // else if (!TL && !TR && BR && BL) write BL into TR, write BR into BL, blank BR
+        // else if (!TL && TR && !BR && BL) write TR into BR, write BL into TL, blank TL, blank TR
+        // else if (!TL && TR && BR && !BL) write BR into BL, write TR into BR, blank TR
+        // else if (!TL && TR && !BR && !BL) write TR into BR, blank TR
+        // else if (!TL && !TR && BR && !BL) write BR into BL, blank BR
+        // else if (!TL && !TR && !BR && BL) write BL into TL, blank BL
+    } else {
+    // for all TL whiteSpace squares
+        // get associated TL, BL, BR, TR whiteSpace values
+        // rotate 180 deg
+        // if (!TL && !BL && !BR && !TR) continue;
+        // if (TL && BL && BR && TR)
+        // else if (TL && !TR && BR && BL)
+        // else if (TL && TR && !BR && BL)
+        // else if (TL && TR && BR && !BL)
+        // else if (TL && TR && !BR && !BL)
+        // else if (TL && !TR && BR && !BL)
+        // else if (TL && !TR && !BR && BL)
+        // else if (TL && !TR && !BR && !BL)
+        // else if (!TL && TR && BR && BL)
+        // else if (!TL && !TR && BR && BL)
+        // else if (!TL && TR && !BR && BL)
+        // else if (!TL && TR && BR && !BL)
+        // else if (!TL && TR && !BR && !BL)
+        // else if (!TL && !TR && BR && !BL)
+        // else if (!TL && !TR && !BR && BL)
+    // will have to handle middle squares separately
+        // get associated TL, BL, BR, TR whiteSpace values
+        // rotate 180 deg
+        // if (!TL && !BL && !BR && !TR) continue;
+        // if (TL && BL && BR && TR)
+        // else if (TL && !TR && BR && BL)
+        // else if (TL && TR && !BR && BL)
+        // else if (TL && TR && BR && !BL)
+        // else if (TL && TR && !BR && !BL)
+        // else if (TL && !TR && BR && !BL)
+        // else if (TL && !TR && !BR && BL)
+        // else if (TL && !TR && !BR && !BL)
+        // else if (!TL && TR && BR && BL)
+        // else if (!TL && !TR && BR && BL)
+        // else if (!TL && TR && !BR && BL)
+        // else if (!TL && TR && BR && !BL)
+        // else if (!TL && TR && !BR && !BL)
+        // else if (!TL && !TR && BR && !BL)
+        // else if (!TL && !TR && !BR && BL)
+    }
 }
 
 /***********************************************************************************************************************
@@ -841,6 +923,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
 unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, unsigned height,
                                 int rotate_iteration) {
     return processRotateCCWReference(buffer_frame, width, height, rotate_iteration);
+    // our condenser limits this to be a 90 deg CCW rotation
 }
 
 /***********************************************************************************************************************
