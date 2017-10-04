@@ -275,6 +275,11 @@ optimized_kv* collapse_sensor_values(struct kv *sensor_values, int sensor_values
         }
         ++i;
         if (i % 25 == 0) {
+            if (is_X_mirrored && is_Y_mirrored && (total_clockwise_rotation == 2 || total_clockwise_rotation == -2)) {
+                is_X_mirrored = false;
+                is_Y_mirrored = false;
+                total_clockwise_rotation = 0;
+            }
             new_count = insert_translation_frames(collapsed_sensor_values, new_count, total_up_movement, total_right_movement);
             new_count = insert_rotation_frames(collapsed_sensor_values, new_count, total_clockwise_rotation);
             new_count = insert_mirror_frames(collapsed_sensor_values, new_count, is_X_mirrored, is_Y_mirrored);
@@ -935,7 +940,7 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
     #ifdef USE_INSTRUCTIONCONDENSER
     int collapsed_sensor_values_count = 0;
     // this is the naive one. The better condensers are collapse_sensor_values and collapse_sensor_values2
-    optimized_kv *collapsed_sensor_values = collapse_sensor_values3(sensor_values, sensor_values_count, &collapsed_sensor_values_count);
+    optimized_kv *collapsed_sensor_values = collapse_sensor_values(sensor_values, sensor_values_count, &collapsed_sensor_values_count);
     /*
     printf("Original Sensor number: %d, New Sensor Count: %d\n", sensor_values_count, collapsed_sensor_values_count);
     for (int i = 0; i < collapsed_sensor_values_count; ++i) {
