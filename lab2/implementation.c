@@ -8,8 +8,7 @@
 // Configuration parameters, uncomment them to turn them on
 // #define USE_ISWHITEARRAY
 #define USE_INSTRUCTIONCONDENSER
-
-unsigned char *rendered_frame;
+#define USE_TRANSLATEOPTS
 
 // TODO: can be removed once everything is done in-place
 /* SENSOR COLLAPSING CODE */
@@ -672,31 +671,18 @@ void swapAndMirrorYSubsquares(unsigned char *buffer_frame, unsigned buffer_width
  * Note2: You can assume the object will never be moved off the screen
  **********************************************************************************************************************/
 unsigned char *processMoveUp(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
-    return processMoveUpReference(buffer_frame, width, height, offset);
-    // store shifted pixels to temporary buffer
-    for (int row = 0; row < (height - offset); row++) {
-        for (int column = 0; column < width; column++) {
-            int position_rendered_frame = row * width * 3 + column * 3;
-            int position_buffer_frame = (row + offset) * width * 3 + column * 3;
-            rendered_frame[position_rendered_frame] = buffer_frame[position_buffer_frame];
-            rendered_frame[position_rendered_frame + 1] = buffer_frame[position_buffer_frame + 1];
-            rendered_frame[position_rendered_frame + 2] = buffer_frame[position_buffer_frame + 2];
-        }
-    }
+    #ifndef USE_TRANSLATEOPTS
+      return processMoveUpReference(buffer_frame, width, height, offset);
+    #endif
+
+    // use memmove to copy over the image
+    int const widthPixels = 3 * width;
+    int const difference = widthPixels * offset;
+    memmove(buffer_frame, buffer_frame + difference, widthPixels * height - difference);
 
     // fill left over pixels with white pixels
-    for (int row = (height - offset); row < height; row++) {
-        for (int column = 0; column < width; column++) {
-            int position_rendered_frame = row * width * 3 + column * 3;
-            rendered_frame[position_rendered_frame] = 255;
-            rendered_frame[position_rendered_frame + 1] = 255;
-            rendered_frame[position_rendered_frame + 2] = 255;
-        }
-    }
-
-    // copy the temporary buffer back to original frame buffer
-    buffer_frame = copyFrame(rendered_frame, buffer_frame, width, height);
-
+    memset(buffer_frame + (height - offset) * widthPixels, 255, difference);
+    
     // return a pointer to the updated image buffer
     return buffer_frame;
 }
@@ -712,33 +698,9 @@ unsigned char *processMoveUp(unsigned char *buffer_frame, unsigned width, unsign
  **********************************************************************************************************************/
 unsigned char *processMoveRight(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
     return processMoveRightReference(buffer_frame, width, height, offset);
-    // store shifted pixels to temporary buffer
-    for (int row = 0; row < height; row++) {
-        for (int column = offset; column < width; column++) {
-            int position_rendered_frame = row * width * 3 + column * 3;
-            int position_buffer_frame = row * width * 3 + (column - offset) * 3;
-            rendered_frame[position_rendered_frame] = buffer_frame[position_buffer_frame];
-            rendered_frame[position_rendered_frame + 1] = buffer_frame[position_buffer_frame + 1];
-            rendered_frame[position_rendered_frame + 2] = buffer_frame[position_buffer_frame + 2];
-        }
-    }
-
-    // fill left over pixels with white pixels
-    for (int row = 0; row < height; row++) {
-        for (int column = 0; column < offset; column++) {
-            int position_rendered_frame = row * width * 3 + column * 3;
-            rendered_frame[position_rendered_frame] = 255;
-            rendered_frame[position_rendered_frame + 1] = 255;
-            rendered_frame[position_rendered_frame + 2] = 255;
-        }
-    }
-
-    // copy the temporary buffer back to original frame buffer
-    buffer_frame = copyFrame(rendered_frame, buffer_frame, width, height);
 
     // return a pointer to the updated image buffer
     return buffer_frame;
-
 }
 
 /***********************************************************************************************************************
@@ -751,31 +713,18 @@ unsigned char *processMoveRight(unsigned char *buffer_frame, unsigned width, uns
  * Note2: You can assume the object will never be moved off the screen
  **********************************************************************************************************************/
 unsigned char *processMoveDown(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
-    // store shifted pixels to temporary buffer
-    return processMoveDownReference(buffer_frame, width, height, offset);
-    for (int row = offset; row < height; row++) {
-        for (int column = 0; column < width; column++) {
-            int position_rendered_frame = row * width * 3 + column * 3;
-            int position_buffer_frame = (row - offset) * width * 3 + column * 3;
-            rendered_frame[position_rendered_frame] = buffer_frame[position_buffer_frame];
-            rendered_frame[position_rendered_frame + 1] = buffer_frame[position_buffer_frame + 1];
-            rendered_frame[position_rendered_frame + 2] = buffer_frame[position_buffer_frame + 2];
-        }
-    }
+    #ifndef USE_TRANSLATEOPTS
+      return processMoveDownReference(buffer_frame, width, height, offset);
+    #endif
+
+    // use memmove to copy over the image
+    int const widthPixels = 3 * width;
+    int const difference = widthPixels * offset;
+    memmove (buffer_frame + difference, buffer_frame, widthPixels * height - difference);
 
     // fill left over pixels with white pixels
-    for (int row = 0; row < offset; row++) {
-        for (int column = 0; column < width; column++) {
-            int position_rendered_frame = row * width * 3 + column * 3;
-            rendered_frame[position_rendered_frame] = 255;
-            rendered_frame[position_rendered_frame + 1] = 255;
-            rendered_frame[position_rendered_frame + 2] = 255;
-        }
-    }
-
-    // copy the temporary buffer back to original frame buffer
-    buffer_frame = copyFrame(rendered_frame, buffer_frame, width, height);
-
+    memset (buffer_frame, 255, difference);
+    
     // return a pointer to the updated image buffer
     return buffer_frame;
 }
@@ -1019,7 +968,6 @@ void print_team_info(){
  **********************************************************************************************************************/
 void implementation_driver(struct kv *sensor_values, int sensor_values_count, unsigned char *frame_buffer,
                            unsigned int width, unsigned int height, bool grading_mode) {
-    rendered_frame = allocateFrame(width, height);
     #ifdef USE_INSTRUCTIONCONDENSER
     int collapsed_sensor_values_count = 0;
     // this is the naive one. The better condensers are collapse_sensor_values and collapse_sensor_values2
@@ -1076,6 +1024,5 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
     #ifdef USE_INSTRUCTIONCONDENSER
     free(collapsed_sensor_values);
     #endif
-    deallocateFrame(rendered_frame);
     return;
 }
