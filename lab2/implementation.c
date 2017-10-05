@@ -207,6 +207,18 @@ optimized_kv* collapse_sensor_values(struct kv *sensor_values, int sensor_values
 /* END SENSOR COLLAPSING CODE */
 
 /* Helper Functions */
+void blankSquare(unsigned char *buffer_frame, unsigned buffer_width, unsigned pxx, unsigned pxy, unsigned blank_width, unsigned blank_height) {
+    unsigned const blank_width_3 = blank_width * 3;
+    unsigned const buffer_width_3 = buffer_width * 3;
+    unsigned char *target = buffer_frame + buffer_width_3 * pxy + pxx * 3;
+    for (int row = 0; row < blank_height; ++row) {
+        // set row to 255,255,255...
+        memset(target, 255, blank_width_3);
+        // move down a row
+        target += buffer_width_3;
+    }
+}
+
 void moveRectInline(unsigned char* buffer_frame, unsigned buffer_width, unsigned src_pxx, unsigned src_pxy, unsigned dst_pxx, unsigned dst_pxy, unsigned cpy_width, unsigned cpy_height) {
     const unsigned buffer_width_3 = buffer_width * 3;
     const unsigned cpy_width_3 = cpy_width * 3;
