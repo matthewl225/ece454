@@ -809,25 +809,65 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
     int whiteArrayWidth = numFullStridesX + (middleSquareDimensionsWidth != 0);
     // TODO: write moveAndRotate function
     if (rotate_iteration == 1) {
+        for (int col = 0; col < whiteSpaceArrayWidth / 2; ++col) {
+            for (int row = 0; row < whiteSpaceArrayHeight / 2; ++row) {
+                int TL_index = row * whiteSpaceArrayWidth + col;
+                int BL_index = (whiteSpaceArrayHeight - 1 - col) * whiteSpaceArrayWidth + row;
+                int BR_index = (whiteSpaceArrayHeight - 1 - row) * whiteSpaceArrayWidth + (whiteSpaceArrayWidth - col - 1);
+                int TR_index = col * whiteSpaceArrayWidth + (whiteSpaceArrayWidth - row - 1);
+                int condition_hash = isWhiteSpaceArray[TL_index] << 3 +
+                                     isWhiteSpaceArray[TR_index] << 2 +
+                                     isWhiteSpaceArray[BR_index] << 1 +
+                                     isWhiteSpaceArray[BL_index];
+                switch (condition_hash) {
+                // if (!TL && !BL && !BR && !TR) don't need to rotate blank squares
+                0b0000: continue; break;
+                // else if (!TL && !TR && !BR && BL) writeRot90 BL into TL, blank BL
+                0b0001:
+                // else if (!TL && !TR && BR && !BL) writeRot90 BR into BL, blank BR
+                0b0010:
+                // else if (!TL && TR && !BR && !BL) writeRot90 TR into BR, blank TR
+                0b0100:
+                // else if (TL && !TR && !BR && !BL) writeRot90 TL into TR, blank TL
+                0b1000:
+                // else if (!TL && !TR && BR && BL) writeRot90 BL into TR, writeRot90 BR into BL, blank BR
+                0b0011:
+                // else if (!TL && TR && !BR && BL) writeRot90 TR into BR, writeRot90 BL into TL, blank BL, blank TR
+                0b0101:
+                // else if (!TL && TR && BR && !BL) writeRot90 BR into BL, writeRot90 TR into BR, blank TR
+                0b0110:
+                // else if (TL && !TR && !BR && BL) writeRot90 TL into TR, writeRot90 BL into TL, blank BL
+                0b1001:
+                // else if (TL && !TR && BR && !BL) writeRot90 TL into TR, writeRot90 BR into BL, blank TL, blank BR
+                0b1010:
+                // else if (TL && TR && !BR && !BL) writeRot90 TR into BR, writeRot90 TL into TR, blank TL
+                0b1100:
+                // else if (TL && TR && BR && !BL) writeRot90 BR into BL, writeRot90 TR into BR, writeRot90 TL into TR, blank TR
+                0b1110:
+                // else if (TL && TR && !BR && BL) writeRot90 TR into BR, writeRot90 TL into TR, writeRot90 BL into TL, blank BL
+                0b1101:
+                // else if (TL && !TR && BR && BL) writeRot90 TL into TR, BL into TL, BR into BL, blank BR
+                0b1011:
+                // else if (!TL && TR && BR && BL) writeRot90 BL into TL, writeRot90 BR into BL, writeRot90 TR into BR, blank TR
+                0b0111:
+                // if (TL && TR && BR && BL) write BL into temp buffer, writeRot90 BR into BL, TR into BR, TL into TR, temp into TL
+                0b1111:
+                }
+                // rotate white space array
+                bool temp = isWhiteSpaceArray[TL_index];
+                isWhiteSpaceArray[TL_index] = isWhiteSpaceArray[BL_index];
+                isWhiteSpaceArray[BL_index] = isWhiteSpaceArray[BR_index];
+                isWhiteSpaceArray[BR_index] = isWhiteSpaceArray[TR_index];
+                isWhiteSpaceArray[TR_index] = temp;
+                // TODO: handle middle rows + cols of possibly non-square sizes. Same rules as above, but only have to move down in rows with center column
+                // TODO: handle middle square, probably write into temp, then write back with rot90
+                    // could also optimize this to be in-place, but might not be worth it due to it being pretty small (< 42x42px)?
+
+
+
     // for all TL whiteSpace squares
         // get associated TL, BL, BR, TR whiteSpace values
         // rotate 90 deg
-        // if (!TL && !BL && !BR && !TR) continue;
-        // if (TL && BL && BR && TR) write BL into temp buffer, write BR into BL, TR into BR, TL into TR, temp into TL
-        // else if (TL && !TR && BR && BL) write TL into TR, BL into TL, BR into BL, blank BL
-        // else if (TL && TR && !BR && BL) write TR into BR, write TL into TR, write BL into TL, blank BL
-        // else if (TL && TR && BR && !BL) write BR into BL, write TR into BR, write TL into TR, blank TR
-        // else if (TL && TR && !BR && !BL) write TR into BR, write TL into TR, blank TL
-        // else if (TL && !TR && BR && !BL) write TL into TR, write BR into BL, blank TL, blank BR
-        // else if (TL && !TR && !BR && BL) write TL into TR, write BL into TL, blank BL
-        // else if (TL && !TR && !BR && !BL) write TL into TR, blank TL
-        // else if (!TL && TR && BR && BL) write BL into TL, write BR into BL, write TR into BR, blank TR
-        // else if (!TL && !TR && BR && BL) write BL into TR, write BR into BL, blank BR
-        // else if (!TL && TR && !BR && BL) write TR into BR, write BL into TL, blank TL, blank TR
-        // else if (!TL && TR && BR && !BL) write BR into BL, write TR into BR, blank TR
-        // else if (!TL && TR && !BR && !BL) write TR into BR, blank TR
-        // else if (!TL && !TR && BR && !BL) write BR into BL, blank BR
-        // else if (!TL && !TR && !BR && BL) write BL into TL, blank BL
     // will have to handle middle squares separately
         // get associated TL, BL, BR, TR whiteSpace values
         // rotate 90 deg
