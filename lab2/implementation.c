@@ -697,7 +697,20 @@ unsigned char *processMoveUp(unsigned char *buffer_frame, unsigned width, unsign
  * Note2: You can assume the object will never be moved off the screen
  **********************************************************************************************************************/
 unsigned char *processMoveRight(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
-    return processMoveRightReference(buffer_frame, width, height, offset);
+    #ifndef USE_TRANSLATEOPTS
+      return processMoveRightReference(buffer_frame, width, height, offset);
+    #endif
+
+    int const widthTriple = 3 * width;
+    int const offsetTriple = 3 * offset; 
+    int const shiftedTriple = widthTriple - offsetTriple; // the amount of pixels in RGB that actually get shifted
+    unsigned char *rowBegin = buffer_frame;
+
+    for (int row = 0; row < height; row++){
+      memmove(rowBegin + offsetTriple, rowBegin, shiftedTriple);
+      memset(rowBegin, 255, offsetTriple);
+      rowBegin += widthTriple;
+    }
 
     // return a pointer to the updated image buffer
     return buffer_frame;
@@ -739,7 +752,23 @@ unsigned char *processMoveDown(unsigned char *buffer_frame, unsigned width, unsi
  * Note2: You can assume the object will never be moved off the screen
  **********************************************************************************************************************/
 unsigned char *processMoveLeft(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
-    return processMoveLeftReference(buffer_frame, width, height, offset);
+    #ifndef USE_TRANSLATEOPTS
+      return processMoveLeftReference(buffer_frame, width, height, offset);
+    #endif
+
+    int const widthTriple = 3 * width;
+    int const offsetTriple = 3 * offset; 
+    int const shiftedTriple = widthTriple - offsetTriple; // the amount of pixels in RGB that actually get shifted
+    unsigned char *rowBegin = buffer_frame;
+
+    for (int row = 0; row < height; row++){
+      memmove(rowBegin, rowBegin + offsetTriple, shiftedTriple);
+      memset(rowBegin + shiftedTriple, 255, offsetTriple);
+      rowBegin += widthTriple;
+    }
+
+    //return a pointer to the updated image buffer
+    return buffer_frame;
 }
 
 /***********************************************************************************************************************
