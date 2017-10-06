@@ -1147,7 +1147,7 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
     // this is the naive one. The better condensers are collapse_sensor_values and collapse_sensor_values2
     optimized_kv *collapsed_sensor_values = collapse_sensor_values(sensor_values, sensor_values_count, &collapsed_sensor_values_count);
     /*
-    printf("Original Sensor number: %d, New Sensor Count: %d\n", sensor_values_count, collapsed_sensor_values_count);
+    printf("Original Sensor number: %d, New Sensor Count: %d\n", sensor_values_count, collapsed_sensor_values_count - sensor_values_count / 25); // don't count the FRAME_BREAKS, as they are unavoidable
     for (int i = 0; i < collapsed_sensor_values_count; ++i) {
         printf("\tCommand: %d Value: %d\n", collapsed_sensor_values[i].type, collapsed_sensor_values[i].value);
     }
