@@ -181,11 +181,18 @@ optimized_kv* collapse_sensor_values(struct kv *sensor_values, int sensor_values
         }
         ++i;
         if (i % 25 == 0) {
+            if (is_X_mirrored && is_Y_mirrored) {
+                total_clockwise_rotation = (total_clockwise_rotation + 2) % 4; // TODO test if it is always faster to do CW,2 vs MX+MY
+                is_X_mirrored = false;                                         // if not, uncomment the block below
+                is_Y_mirrored = false;
+            }
+            /*
             if (is_X_mirrored && is_Y_mirrored && (total_clockwise_rotation == 2 || total_clockwise_rotation == -2)) {
                 is_X_mirrored = false;
                 is_Y_mirrored = false;
                 total_clockwise_rotation = 0;
             }
+            */
             new_count = insert_translation_frames(collapsed_sensor_values, new_count, total_up_movement, total_right_movement);
             new_count = insert_rotation_frames(collapsed_sensor_values, new_count, total_clockwise_rotation);
             new_count = insert_mirror_frames(collapsed_sensor_values, new_count, is_X_mirrored, is_Y_mirrored);
