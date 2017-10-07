@@ -392,6 +392,7 @@ void populateIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned h
     }
 
     // For debugging: print the white area array
+    /*
     printf("\n\nWhiteSpaceArray (%d x %d), middle square is %d x %d:\n", boolArrayWidth, boolArrayHeight, middleSquareDimensions, middleSquareDimensions);
     for (int row = 0; row < boolArrayHeight; row++) {
         for (int col = 0; col < boolArrayWidth; col++) {
@@ -399,6 +400,7 @@ void populateIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned h
         }
         printf("\n");
     }
+    */
 }
 
 void createIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned height) {
@@ -495,7 +497,7 @@ void moveRectInlineRotate90CW(unsigned char* buffer_frame, unsigned buffer_width
     // printf("Moving from (%d,%d) to (%d,%d) size: %d x %d with 90 deg CW rotation\n", src_pxx, src_pxy, dst_pxx, dst_pxy, cpy_width, cpy_height);
     const unsigned buffer_width_3 = buffer_width * 3;
     unsigned char *src_base = buffer_frame + buffer_width_3 * src_pxy + (src_pxx + cpy_width - 1) * 3; // first row last col
-    unsigned char *dst_base = buffer_frame + buffer_width_3 * (dst_pxy + cpy_height - 1) + (dst_pxx + cpy_width - 1) * 3;// last row last col
+    unsigned char *dst_base = buffer_frame + buffer_width_3 * (dst_pxy + cpy_width - 1) + (dst_pxx + cpy_height - 1) * 3;// last row last col
     unsigned char *src = src_base;
     unsigned char *dst = dst_base;
     for (int src_row = 0; src_row < cpy_height; ++src_row) {
@@ -522,7 +524,7 @@ void moveTempToBufferRotate90CW(unsigned char* buffer_frame, unsigned char *temp
     const unsigned temp_width_3 = temp_width * 3;
 
     unsigned char *src_base = temp + temp_width_3 - 3; // top row, last col
-    unsigned char *dst_base = buffer_frame  + buffer_width_3 * (dst_pxy + temp_height - 1) + (dst_pxx + temp_width - 1) * 3; // bottom row, last col
+    unsigned char *dst_base = buffer_frame  + buffer_width_3 * (dst_pxy + temp_width - 1) + (dst_pxx + temp_height - 1) * 3; // bottom row, last col
     unsigned char *src = src_base;
     unsigned char *dst = dst_base;
     for (int row = 0; row < temp_height; ++row) {
@@ -803,7 +805,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                                      (!isWhiteArea[TR_index] << 2) +
                                      (!isWhiteArea[BR_index] << 1) +
                                      (!isWhiteArea[BL_index]);
-                // printf("Rotating WS square (%d, %d), hash: %d\n", col, row, condition_hash);
+                // if (condition_hash != 0) printf("Rotating WS square (%d, %d), hash: %d\n", col, row, condition_hash);
                 switch (condition_hash) {
                     // if (!TL && !BL && !BR && !TR) don't need to rotate blank squares
                     case 0b0000: continue; break;
@@ -1004,10 +1006,10 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                                      (!isWhiteArea[right_row_index] << 2) +
                                      (!isWhiteArea[bottom_col_index] << 1) +
                                      (!isWhiteArea[left_row_index]);
-                printf("Rotating Middle Col WS square (%d, %d), hash: %d\n", col, row, condition_hash);
+                // if (condition_hash != 0) printf("Rotating Middle Col WS square (%d, %d), hash: %d\n", col, row, condition_hash);
                 // TODO: fix these
                 switch (condition_hash) {
-                    case 0b0000: printf("\t Nothing to do\n");continue; break;
+                    case 0b0000: continue; break;
                     case 0b0001: // left into top, blank left
                         translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
@@ -1039,7 +1041,6 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
 
-                        printf("Moving and Rot90CW (%d, %d), size %dx%d to (%d, %d), size %dx%d\n", top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
                         moveRectInlineRotate90CW(buffer_frame, width, top_px_x, top_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
                         blankSquare(buffer_frame, width, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
                         break;
@@ -1182,24 +1183,25 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         break;
                 }                
 
-                top_col_index += whiteSpaceArrayWidth; // down 1 row
-                bottom_col_index -= whiteSpaceArrayWidth; // up 1 row
-                --right_row_index; // left one column
-                ++left_row_index; // right one column
-
+                // Update whitespace array
                 bool temp_bool = isWhiteArea[top_col_index];
                 isWhiteArea[top_col_index] = isWhiteArea[left_row_index];
                 isWhiteArea[left_row_index] = isWhiteArea[bottom_col_index];
                 isWhiteArea[bottom_col_index] = isWhiteArea[right_row_index];
                 isWhiteArea[right_row_index] = temp_bool;
+
+                top_col_index += whiteSpaceArrayWidth; // down 1 row
+                bottom_col_index -= whiteSpaceArrayWidth; // up 1 row
+                --right_row_index; // left one column
+                ++left_row_index; // right one column
+
             }
             if (!isWhiteArea[whiteSpaceArrayWidth * (whiteSpaceArrayHeight / 2) + (whiteSpaceArrayWidth / 2)]) {
-                printf("Rotating middle square (%d, %d)\n", whiteSpaceArrayWidth / 2, whiteSpaceArrayHeight / 2);
                 translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth / 2, whiteSpaceArrayHeight / 2, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y); // reusing tl_px_* for middle square
                 moveRectToTemp(buffer_frame, temp_square, width, tl_px_x, tl_px_y, middleSquareDimensions, middleSquareDimensions);
                 moveTempToBufferRotate90CW(buffer_frame, temp_square, width, tl_px_x, tl_px_y, middleSquareDimensions, middleSquareDimensions);
             }
-            // TODO: could also optimize this to be in-place, but might not be worth it due to it being pretty small (< 42x42px)?
+            // no whitespace array update required
         }
 
 
@@ -1416,6 +1418,5 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
     #ifdef USE_INSTRUCTIONCONDENSER
     free(collapsed_sensor_values);
     #endif
-    printf("\n\n\n");
     return;
 }
