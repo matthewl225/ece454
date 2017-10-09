@@ -1,13 +1,25 @@
- This is a count of how many times a function will be executed, and with what value.
-     54 Command: CW Value: 1
-     27 Command: A Value: 2
-     25 Command: A Value: 1
-     13 Command: 0 Value: 0
-      9 Command: CW Value: 2
-      2 Command: W Value: 2
-      2 Command: W Value: 1
-      2 Command: S Value: 2
-      2 Command: S Value: 1
-      1 Command: D Value: 25
-      1 Command: D Value: 2
-      1 Command: CCW Value: 1
+Command: 87 Value: 1
+Command: 0 Value: 0
+Command: 83 Value: 1
+Command: 0 Value: 0
+Command: 87 Value: 1
+Command: 0 Value: 0
+Command: 83 Value: 1
+Command: 0 Value: 0
+Command: 154 Value: 1
+Command: 0 Value: 0
+Command: 65 Value: 1
+Command: 0 Value: 0
+Command: 154 Value: 1
+Command: 0 Value: 0
+Command: 65 Value: 2
+Command: 0 Value: 0
+Command: 68 Value: 25
+Command: 0 Value: 0
+Command: 154 Value: 1
+Command: 0 Value: 0
+Command: 154 Value: 2
+Command: 0 Value: 0
+Command: 134 Value: 1
+Command: 0 Value: 0
+Command: 0 Value: 0
