@@ -7,6 +7,7 @@
 
 // Configuration parameters, uncomment them to turn them on
 #define USE_ISWHITEAREA
+#define USE_MIRROROPTS
 #define USE_INSTRUCTIONCONDENSER
 #define USE_TRANSLATEOPTS
 
@@ -710,7 +711,8 @@ unsigned char *processMoveUp(unsigned char *buffer_frame, unsigned width, unsign
     populateIsWhiteArea(buffer_frame, width, height);
     #endif
     return ret;
-    #endif
+
+    #else
 
     // use memmove to copy over the image
     int const widthPixels = 3 * width;
@@ -725,6 +727,8 @@ unsigned char *processMoveUp(unsigned char *buffer_frame, unsigned width, unsign
     #endif
     // return a pointer to the updated image buffer
     return buffer_frame;
+
+    #endif
 }
 
 /***********************************************************************************************************************
@@ -737,14 +741,33 @@ unsigned char *processMoveUp(unsigned char *buffer_frame, unsigned width, unsign
  * Note2: You can assume the object will never be moved off the screen
  **********************************************************************************************************************/
 unsigned char *processMoveRight(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
+    #ifndef USE_TRANSLATEOPTS
+
     unsigned char *ret = processMoveRightReference(buffer_frame, width, height, offset);
     #ifdef USE_ISWHITEAREA
     populateIsWhiteArea(buffer_frame, width, height);
     #endif
     return ret;
 
+    #else
+
+    int const widthTriple = 3 * width;
+    int const offsetTriple = 3 * offset; 
+    int const shiftedTriple = widthTriple - offsetTriple; // the amount of pixels in RGB that actually get shifted
+    unsigned char *rowBegin = buffer_frame;
+
+    for (int row = 0; row < height; row++){
+      memmove(rowBegin + offsetTriple, rowBegin, shiftedTriple);
+      memset(rowBegin, 255, offsetTriple);
+      rowBegin += widthTriple;
+    }
+    #ifdef USE_ISWHITEAREA
+    populateIsWhiteArea(buffer_frame, width, height);
+    #endif
     // return a pointer to the updated image buffer
     return buffer_frame;
+    #endif
+
 }
 
 /***********************************************************************************************************************
@@ -763,8 +786,8 @@ unsigned char *processMoveDown(unsigned char *buffer_frame, unsigned width, unsi
     populateIsWhiteArea(buffer_frame, width, height);
     #endif
     return ret;
-    #endif
 
+    #else
     // use memmove to copy over the image
     int const widthPixels = 3 * width;
     int const difference = widthPixels * offset;
@@ -778,6 +801,8 @@ unsigned char *processMoveDown(unsigned char *buffer_frame, unsigned width, unsi
     populateIsWhiteArea(buffer_frame, width, height);
     #endif
     return buffer_frame;
+
+    #endif
 }
 
 /***********************************************************************************************************************
@@ -790,11 +815,33 @@ unsigned char *processMoveDown(unsigned char *buffer_frame, unsigned width, unsi
  * Note2: You can assume the object will never be moved off the screen
  **********************************************************************************************************************/
 unsigned char *processMoveLeft(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
+    #ifndef USE_TRANSLATEOPTS
     unsigned char *ret = processMoveLeftReference(buffer_frame, width, height, offset);
     #ifdef USE_ISWHITEAREA
     populateIsWhiteArea(buffer_frame, width, height);
     #endif
     return ret;
+
+    #else
+
+    int const widthTriple = 3 * width;
+    int const offsetTriple = 3 * offset; 
+    int const shiftedTriple = widthTriple - offsetTriple; // the amount of pixels in RGB that actually get shifted
+    unsigned char *rowBegin = buffer_frame;
+
+    for (int row = 0; row < height; row++){
+      memmove(rowBegin, rowBegin + offsetTriple, shiftedTriple);
+      memset(rowBegin + shiftedTriple, 255, offsetTriple);
+      rowBegin += widthTriple;
+    }
+
+    //return a pointer to the updated image buffer
+    #ifdef USE_ISWHITEAREA
+    populateIsWhiteArea(buffer_frame, width, height);
+    #endif
+    return buffer_frame;
+
+    #endif
 }
 
 /***********************************************************************************************************************
@@ -1676,10 +1723,13 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
  * @return
  **********************************************************************************************************************/
 unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, unsigned int height, int _unused) {
+    #ifndef USE_MIRROROPTS
     return processMirrorXReference(buffer_frame, width, height, _unused);
+    #else
     swapAndMirrorXSubsquares(buffer_frame, width, 0, 0, 0, height-1, width, height/2);
     // TODO: once everything is done in-place, wont need this return anymore
     return buffer_frame;
+    #endif
 }
 
 /***********************************************************************************************************************
@@ -1690,11 +1740,14 @@ unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, u
  * @return
  **********************************************************************************************************************/
 unsigned char *processMirrorY(unsigned char *buffer_frame, unsigned width, unsigned height, int _unused) {
+    #ifndef USE_MIRROROPTS
     return processMirrorYReference(buffer_frame, width, height, _unused);
+    #else
     // TODO: only swap and mirror non-white squares.
     swapAndMirrorYSubsquares(buffer_frame, width, 0, 0, width-1, 0, width/2, height);
     // TODO: once everything is done in-place, wont need this return anymore
     return buffer_frame;
+    #endif
 }
 
 /***********************************************************************************************************************
