@@ -1726,9 +1726,78 @@ unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, u
     #ifndef USE_MIRROROPTS
     return processMirrorXReference(buffer_frame, width, height, _unused);
     #else
+    #ifndef USE_ISWHITEAREA
     swapAndMirrorXSubsquares(buffer_frame, width, 0, 0, 0, height-1, width, height/2);
     // TODO: once everything is done in-place, wont need this return anymore
     return buffer_frame;
+    #else
+    int const whiteSpaceArrayWidth = numFullStridesX + (middleSquareDimensions != 0);
+    int const whiteSpaceArrayHeight = whiteSpaceArrayWidth; // TODO we know its always square, we can remove this and just use Width
+    int const numFullStridesY_div_2 = numFullStridesY / 2;
+    int const numFullStridesX_div_2 = numFullStridesX / 2;
+
+    int ws_row, ws_col;
+
+    int ws_top_index_base = 0, ws_top_index = 0;
+    int ws_bottom_index_base = whiteSpaceArrayWidth * (whiteSpaceArrayHeight - 1);
+    int ws_bottom_index = ws_bottom_index_base;
+
+    int px_x = 0; // same for top and bottom
+    int top_px_y = 0; // top left of this square
+    int bottom_px_y = height - 1; // bottom left of this square
+    // top and bottom left quadrants
+    for (ws_row = 0; ws_row < numFullStridesY_div_2; ++ws_row) {
+        for (ws_col = 0; ws_col < numFullStridesX_div_2; ++ws_col) {
+            if (!isWhiteArea[ws_top_index] || !isWhiteArea[ws_bottom_index]) {
+                swapAndMirrorXSubsquares(buffer_frame, width, px_x, top_px_y, px_x, bottom_px_y, isWhiteAreaStride, isWhiteAreaStride);
+            }
+            ++ws_top_index;
+            ++ws_bottom_index;
+            px_x += isWhiteAreaStride; // right one col
+        }
+
+        ws_top_index_base += whiteSpaceArrayWidth;
+        ws_top_index = ws_top_index_base;
+        ws_bottom_index_base -= whiteSpaceArrayWidth;
+        ws_bottom_index = ws_bottom_index_base;
+
+        px_x = 0; // first col
+        top_px_y += isWhiteAreaStride; // down a stride
+        bottom_px_y -= isWhiteAreaStride; // up a stride
+    }
+    // top and bottom right quadrants
+    ws_top_index_base = numFullStridesX_div_2 + (middleSquareDimensions != 0);
+    ws_top_index = ws_top_index_base;
+    ws_bottom_index_base = whiteSpaceArrayWidth * (whiteSpaceArrayHeight - 1) + ws_top_index_base;
+    ws_bottom_index = ws_bottom_index_base;
+
+    int px_x_base = numFullStridesX_div_2 * isWhiteAreaStride + middleSquareDimensions;
+    px_x = px_x_base;
+    top_px_y = 0;
+    bottom_px_y = height - 1;
+    for (ws_row = 0; ws_row < numFullStridesY_div_2; ++ws_row) {
+        for (ws_col = numFullStridesX_div_2 + (middleSquareDimensions != 0); ws_col < whiteSpaceArrayWidth; ++ws_col) {
+            if (!isWhiteArea[ws_top_index] || !isWhiteArea[ws_bottom_index]) {
+                swapAndMirrorXSubsquares(buffer_frame, width, px_x, top_px_y, px_x, bottom_px_y, isWhiteAreaStride, isWhiteAreaStride);
+            }
+            ++ws_top_index;
+            ++ws_bottom_index;
+            px_x += isWhiteAreaStride; // right one col
+        }
+
+        ws_top_index_base += whiteSpaceArrayWidth; // down a row, first col on right
+        ws_top_index = ws_top_index_base;
+        ws_bottom_index_base -= whiteSpaceArrayWidth; // up a row, first col on right
+        ws_bottom_index = ws_bottom_index_base;
+
+        px_x = px_x_base; // first col on right side
+        top_px_y += isWhiteAreaStride; // down a stride
+        bottom_px_y -= isWhiteAreaStride; // up a stride
+    }
+    // TODO: middle column special case
+    // TODO: middle row special case, split row in half to do it inline
+    // TODO: middle square special case, split in half along x axis to do it inline
+    #endif
     #endif
 }
 
