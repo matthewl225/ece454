@@ -1016,11 +1016,59 @@ unsigned char *processMoveLeft(unsigned char *buffer_frame, unsigned width, unsi
 
     #else
 
+    unsigned const wsDimensions = numFullStridesX + (middleSquareDimensions != 0);
     int const widthTriple = 3 * width;
     int const offsetTriple = 3 * offset; 
     int const shiftedTriple = widthTriple - offsetTriple; // the amount of pixels in RGB that actually get shifted
     unsigned char *rowBegin = buffer_frame;
 
+
+    unsigned ws_index_base = wsDimensions * wsDimensions - 1;
+    unsigned ws_index = ws_index_base;
+    unsigned new_height = height;
+    int ws_row, ws_col;
+    unsigned unused, px_y;
+    for (ws_row = wsDimensions - 1; ws_row >= 0; --ws_row) {
+        for (ws_col = 0; ws_col < wsDimensions; ++ws_col) {
+            if (!isWhiteArea[ws_index]) {
+                // printf("Old Height: %d ", height);
+                translateWhiteSpaceArrayIndicesToPixel(0, ws_row+1, wsDimensions, &unused, &new_height);
+                // printf("New Height: %d\n", new_height);
+                goto found_height;
+            }
+            --ws_index;
+        }
+        ws_index_base -= wsDimensions;
+        ws_index = ws_index_base;
+    }
+found_height:
+    ws_index = 0;
+    ws_index_base = 0;
+    for (ws_row = 0; ws_row < wsDimensions; ++ws_row) {
+        for (ws_col = 0; ws_col < wsDimensions; ++ws_col) {
+            if (!isWhiteArea[ws_index]) {
+                translateWhiteSpaceArrayIndicesToPixel(0, ws_row, wsDimensions, &unused, &px_y);
+                rowBegin = buffer_frame + px_y * widthTriple;
+                long height_limit = new_height - px_y;
+                // printf("Moving %d rows instead of %d rows\n", height_limit, height);
+                for (ws_row = 0; ws_row < height_limit; ws_row++){
+                    memmove(rowBegin, rowBegin + offsetTriple, shiftedTriple);
+                    memset(rowBegin + shiftedTriple, 255, offsetTriple);
+                    rowBegin += widthTriple;
+                }
+                #ifdef USE_ISWHITEAREA
+                updateIsWhiteAreaLeftOffset(buffer_frame, width, offset);
+                #endif
+                return buffer_frame;
+            }
+            ++ws_index;
+        }
+        ws_index_base += wsDimensions;
+        ws_index = ws_index_base;
+    }
+    
+
+    /*
     for (int row = 0; row < height; row++){
       memmove(rowBegin, rowBegin + offsetTriple, shiftedTriple);
       memset(rowBegin + shiftedTriple, 255, offsetTriple);
@@ -1032,6 +1080,7 @@ unsigned char *processMoveLeft(unsigned char *buffer_frame, unsigned width, unsi
     updateIsWhiteAreaLeftOffset(buffer_frame, width, offset);
     #endif
     return buffer_frame;
+    */
 
     #endif
 }
