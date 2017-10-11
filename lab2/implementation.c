@@ -301,6 +301,93 @@ bool checkWhiteAreaSquare(unsigned char *buffer_frame, unsigned buffer_pxwidth, 
     return true;
 }
 
+void updateIsWhiteAreaLeftOffset(unsigned char *buffer_frame, unsigned buffer_width, unsigned left_offset) {
+    // check how many strides to the left we have to check of every black square
+    unsigned const wsArrayDimensions = numFullStridesX + (middleSquareDimensions != 0);
+    unsigned const numFullStridesX_div_2 = numFullStridesX / 2;
+    int const middleIndex = middleSquareDimensions != 0 ? numFullStridesX_div_2 : -1;
+    // iterate top->bottom, left -> right
+    unsigned row_wsArrayDimensions = 0;
+    unsigned orig_px_x, orig_px_y;
+    long dst_px_x; // has to handle negatives properly
+    unsigned dst_ws_row, dst_ws_col, dst_row_wsDimensions;
+    unsigned dim_width, dim_height;
+    // int num_checked = 0;
+    for (int row = 0; row < wsArrayDimensions; ++row) {
+        for (int col = 0; col < wsArrayDimensions; ++col) {
+            if (isWhiteArea[row_wsArrayDimensions + col]) {
+                continue;
+            }
+            dim_width = col == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+            dim_height = row == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+            isWhiteArea[row_wsArrayDimensions + col] = checkWhiteAreaSquare(buffer_frame, buffer_width, col, row, dim_width, dim_height);
+            // num_checked++;
+
+            translateWhiteSpaceArrayIndicesToPixel(col, row, wsArrayDimensions, &orig_px_x, &orig_px_y);
+            dst_px_x = orig_px_x - left_offset;
+            if (dst_px_x >= 0) {
+                translatePixelToWhiteSpaceArrayIndices(dst_px_x, orig_px_y, buffer_width, &dst_ws_col, &dst_ws_row);
+                dim_width = dst_ws_col == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                dim_height = dst_ws_row == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                dst_row_wsDimensions = dst_ws_row * wsArrayDimensions;
+                isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                // num_checked++;
+                // don't have to check col again or to the right of col
+                ++dst_ws_col;
+                if (dst_ws_col < col) {
+                    dim_width = dst_ws_col == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                    // height is the same
+                    isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                    // num_checked++;
+                }
+            } // TODO this wont handle objects being moved "almost" off the screen with a large offset
+        }
+        row_wsArrayDimensions += wsArrayDimensions;
+    }
+    /*
+    printf("Checked %d WS squares due to left movement\n", num_checked);
+    for(int row = 0; row < wsArrayDimensions; ++row) {
+        for (int col = 0; col < wsArrayDimensions; ++col) {
+            printf("%d",isWhiteArea[row*wsArrayDimensions + col]);
+        }
+        printf("\n");
+    }
+    */
+    // find a black square top left px and ws index, move left_offset to the left of that and calculate that ws index.
+    // also have to check the black square itself
+    // might have to check one square back to the right to be sure
+    // => at most 3 squares for each black square
+}
+
+void updateIsWhiteAreaRightOffset(unsigned char *buffer_frame, unsigned buffer_width, unsigned right_offset) {
+    // check how many strides to the right we have to check of every black square
+    // iterate top->bottom, right -> left
+    // find a black square top RIGHT px and ws index, move right_offset to the right of that and calculate that ws index.
+    // also have to check the black square itself
+    // might have to check one square back to the left to be sure
+    // => at most 3 squares for each black square
+
+}
+
+void updateIsWhiteAreaUpOffset(unsigned char *buffer_frame, unsigned buffer_width, unsigned up_offset) {
+    // check how many strides up we have to check of every black square
+    // iterate top->bottom, left -> right
+    // find a black square top left px and ws index, move up_offset up of that and calculate that ws index.
+    // also have to check the black square itself
+    // might have to check one square back down to be sure
+    // => at most 3 squares for each black square
+
+}
+
+void updateIsWhiteAreaDownOffset(unsigned char *buffer_frame, unsigned buffer_width, unsigned down_offset) {
+    // check how many strides up we have to check of every black square
+    // iterate bottom->top, left -> right
+    // find a black square BOTTOM left px and ws index, move down_offset down of that and calculate that ws index.
+    // also have to check the black square itself
+    // might have to check one square back up to be sure
+    // => at most 3 squares for each black square
+}
+
 void populateIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned height) {
     const bool hasMiddleSquare = (middleSquareDimensions != 0);
     unsigned int boolArrayWidth = numFullStridesX + hasMiddleSquare;
@@ -818,7 +905,7 @@ unsigned char *processMoveLeft(unsigned char *buffer_frame, unsigned width, unsi
     #ifndef USE_TRANSLATEOPTS
     unsigned char *ret = processMoveLeftReference(buffer_frame, width, height, offset);
     #ifdef USE_ISWHITEAREA
-    populateIsWhiteArea(buffer_frame, width, height);
+    updateIsWhiteAreaLeftOffset(buffer_frame, width, offset);
     #endif
     return ret;
 
@@ -837,7 +924,7 @@ unsigned char *processMoveLeft(unsigned char *buffer_frame, unsigned width, unsi
 
     //return a pointer to the updated image buffer
     #ifdef USE_ISWHITEAREA
-    populateIsWhiteArea(buffer_frame, width, height);
+    updateIsWhiteAreaLeftOffset(buffer_frame, width, offset);
     #endif
     return buffer_frame;
 
