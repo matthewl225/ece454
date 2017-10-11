@@ -28,6 +28,7 @@ typedef enum {
     FRAME_BREAK = 0,
 } movement_type;
 
+
 #ifdef USE_INSTRUCTIONCONDENSER
 typedef struct {
     movement_type type;
@@ -228,7 +229,6 @@ unsigned int numFullStridesY;
 unsigned int middleSquareDimensions;
 
 
-// TODO check this
 void translatePixelToWhiteSpaceArrayIndices(unsigned px_x, unsigned px_y, unsigned px_width, unsigned *ws_x_out, unsigned *ws_y_out) {
     // if px_x is inside the middle column, return the middle column
     const bool hasMiddleSquare = (middleSquareDimensions != 0);
@@ -246,7 +246,7 @@ void translatePixelToWhiteSpaceArrayIndices(unsigned px_x, unsigned px_y, unsign
         } else if (test < 0) {
             // left of the middle
             *ws_x_out = px_x / isWhiteAreaStride;
-        } else if (test > middleSquareDimensions) {
+        } else if (test >= middleSquareDimensions) {
             // right of the middle
             *ws_x_out = (numFullStridesX_div_2) + 1 + ((test - middleSquareDimensions) / isWhiteAreaStride);
         }
@@ -263,6 +263,7 @@ void translatePixelToWhiteSpaceArrayIndices(unsigned px_x, unsigned px_y, unsign
             *ws_y_out = (numFullStridesY_div_2) + 1 + ((test - middleSquareDimensions) / isWhiteAreaStride);
         }
     }
+    // printf("Translating px (%d, %d) to (%d, %d)\n", px_x, px_y, *ws_x_out, *ws_y_out);
 
 }
 
@@ -311,7 +312,7 @@ void updateIsWhiteAreaLeftOffset(unsigned char *buffer_frame, unsigned buffer_wi
     unsigned orig_px_x, orig_px_y;
     long dst_px_x; // has to handle negatives properly
     unsigned dst_ws_row, dst_ws_col, dst_row_wsDimensions;
-    unsigned dim_width, dim_height;
+    long dim_width, dim_height;
     // int num_checked = 0;
     for (int row = 0; row < wsArrayDimensions; ++row) {
         for (int col = 0; col < wsArrayDimensions; ++col) {
@@ -360,6 +361,60 @@ void updateIsWhiteAreaLeftOffset(unsigned char *buffer_frame, unsigned buffer_wi
 }
 
 void updateIsWhiteAreaRightOffset(unsigned char *buffer_frame, unsigned buffer_width, unsigned right_offset) {
+    // check how many strides to the left we have to check of every black square
+    unsigned const wsArrayDimensions = numFullStridesX + (middleSquareDimensions != 0);
+    unsigned const numFullStridesX_div_2 = numFullStridesX / 2;
+    int const middleIndex = middleSquareDimensions != 0 ? numFullStridesX_div_2 : -1;
+    // iterate top->bottom, left -> right
+    unsigned row_wsArrayDimensions = 0;
+    unsigned orig_px_x, orig_px_y;
+    long dst_px_x; // has to handle negatives properly
+    unsigned dst_ws_row, dst_ws_col, dst_row_wsDimensions;
+    long dim_width, dim_height;
+    // int num_checked = 0;
+    for (int row = 0; row < wsArrayDimensions; ++row) {
+        for (int col = wsArrayDimensions - 1; col >= 0; --col) {
+            if (isWhiteArea[row_wsArrayDimensions + col]) {
+                continue;
+            }
+            dim_width = col == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+            dim_height = row == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+            isWhiteArea[row_wsArrayDimensions + col] = checkWhiteAreaSquare(buffer_frame, buffer_width, col, row, dim_width, dim_height);
+            // printf("Moved (%d, %d) offset %d. Therefore checking (%d, %d) - 1\n", col, row, right_offset, col, row);
+            // num_checked++;
+
+            translateWhiteSpaceArrayIndicesToPixel(col, row, wsArrayDimensions, &orig_px_x, &orig_px_y);
+            dst_px_x = orig_px_x + right_offset + dim_width - 1;
+            if (dst_px_x < buffer_width) {
+                translatePixelToWhiteSpaceArrayIndices(dst_px_x, orig_px_y, buffer_width, &dst_ws_col, &dst_ws_row);
+                dim_width = dst_ws_col == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                dim_height = dst_ws_row == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                dst_row_wsDimensions = dst_ws_row * wsArrayDimensions;
+                isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                // printf("Moved (%d, %d) offset %d. Therefore checking (%d, %d) - 2\n", col, row, right_offset, dst_ws_col, dst_ws_row);
+                // num_checked++;
+                // don't have to check col again or to the left of col
+                --dst_ws_col;
+                if (dst_ws_col > col) {
+                    dim_width = dst_ws_col == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                    // height is the same
+                    isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                    // printf("Moved (%d, %d) offset %d. Therefore checking (%d, %d) - 3\n", col, row, right_offset, dst_ws_col, dst_ws_row);
+                    // num_checked++;
+                }
+            } // TODO this wont handle objects being moved "almost" off the screen with a large offset
+        }
+        row_wsArrayDimensions += wsArrayDimensions;
+    }
+    /*
+    printf("Checked %d WS squares due to right movement\n", num_checked);
+    for(int row = 0; row < wsArrayDimensions; ++row) {
+        for (int col = 0; col < wsArrayDimensions; ++col) {
+            printf("%d",isWhiteArea[row*wsArrayDimensions + col]);
+        }
+        printf("\n");
+    }
+    */
     // check how many strides to the right we have to check of every black square
     // iterate top->bottom, right -> left
     // find a black square top RIGHT px and ws index, move right_offset to the right of that and calculate that ws index.
@@ -370,6 +425,60 @@ void updateIsWhiteAreaRightOffset(unsigned char *buffer_frame, unsigned buffer_w
 }
 
 void updateIsWhiteAreaUpOffset(unsigned char *buffer_frame, unsigned buffer_width, unsigned up_offset) {
+    // check how many strides to the left we have to check of every black square
+    unsigned const wsArrayDimensions = numFullStridesX + (middleSquareDimensions != 0);
+    unsigned const numFullStridesX_div_2 = numFullStridesX / 2;
+    int const middleIndex = middleSquareDimensions != 0 ? numFullStridesX_div_2 : -1;
+    // iterate top->bottom, left -> right
+    unsigned row_wsArrayDimensions = 0;
+    unsigned orig_px_x, orig_px_y;
+    long dst_px_y; // has to handle negatives properly
+    unsigned dst_ws_row, dst_ws_col, dst_row_wsDimensions;
+    long dim_width, dim_height;
+    // int num_checked = 0;
+    for (int row = 0; row < wsArrayDimensions; ++row) {
+        for (int col = 0; col < wsArrayDimensions; ++col) {
+            if (isWhiteArea[row_wsArrayDimensions + col]) {
+                continue;
+            }
+            dim_width = col == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+            dim_height = row == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+            // printf("Moved (%d, %d) offset %d. Therefore checking (%d, %d) - 1\n", col, row, up_offset, col, row);
+            isWhiteArea[row_wsArrayDimensions + col] = checkWhiteAreaSquare(buffer_frame, buffer_width, col, row, dim_width, dim_height);
+            // num_checked++;
+
+            translateWhiteSpaceArrayIndicesToPixel(col, row, wsArrayDimensions, &orig_px_x, &orig_px_y);
+            dst_px_y = orig_px_y - up_offset;
+            if (dst_px_y >= 0) {
+                translatePixelToWhiteSpaceArrayIndices(orig_px_x, dst_px_y, buffer_width, &dst_ws_col, &dst_ws_row);
+                dim_width = dst_ws_col == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                dim_height = dst_ws_row == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                dst_row_wsDimensions = dst_ws_row * wsArrayDimensions;
+                // printf("Moved (%d, %d) offset %d. Therefore checking (%d, %d) - 2\n", col, row, up_offset, dst_ws_col, dst_ws_row);
+                isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                // num_checked++;
+                // don't have to check row again or below row
+                ++dst_ws_row;
+                dst_row_wsDimensions += wsArrayDimensions;
+                if (dst_ws_row < row) {
+                    dim_height = dst_ws_row == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                    // width is the same
+                    // printf("Moved (%d, %d) offset %d. Therefore checking (%d, %d) - 3\n", col, row, up_offset, dst_ws_col, dst_ws_row);
+                    isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                    // num_checked++;
+                }
+            } // TODO this wont handle objects being moved "almost" off the screen with a large offset
+        }
+        row_wsArrayDimensions += wsArrayDimensions;
+    }
+    /*
+    for(int row = 0; row < wsArrayDimensions; ++row) {
+        for (int col = 0; col < wsArrayDimensions; ++col) {
+            printf("%d",isWhiteArea[row*wsArrayDimensions + col]);
+        }
+        printf("\n");
+    }
+    */
     // check how many strides up we have to check of every black square
     // iterate top->bottom, left -> right
     // find a black square top left px and ws index, move up_offset up of that and calculate that ws index.
@@ -494,6 +603,7 @@ void createIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned hei
     numFullStridesX = (width / isWhiteAreaStride / 2 * 2); // divide into this many 21x21 pixel squares. Must be an even number
     numFullStridesY = (height / isWhiteAreaStride / 2 * 2);
     middleSquareDimensions = width % (isWhiteAreaStride * 2); // remainder of the above square division.
+    // printf("NumFullStridesX %d NumFullStridesY %d middleSquareDimensions %d \n", numFullStridesX, numFullStridesY, middleSquareDimensions);
     isWhiteArea = calloc((numFullStridesX + 1) * (numFullStridesY + 1), sizeof(bool));
     unsigned max_square_width = isWhiteAreaStride < middleSquareDimensions ? middleSquareDimensions : isWhiteAreaStride;
     temp_square = (unsigned char*)malloc(max_square_width * max_square_width * sizeof(unsigned char)*3);
@@ -513,21 +623,6 @@ void blankSquare(unsigned char *buffer_frame, unsigned buffer_width, unsigned px
         memset(target, 255, blank_width_3);
         // move down a row
         target += buffer_width_3;
-    }
-}
-
-void moveRectInline(unsigned char* buffer_frame, unsigned buffer_width, unsigned src_pxx, unsigned src_pxy, unsigned dst_pxx, unsigned dst_pxy, unsigned cpy_width, unsigned cpy_height) {
-    const unsigned buffer_width_3 = buffer_width * 3;
-    const unsigned cpy_width_3 = cpy_width * 3;
-
-    unsigned char *src = buffer_frame + buffer_width_3 * src_pxy + src_pxx * 3;
-    unsigned char *dst = buffer_frame + buffer_width_3 * dst_pxy + dst_pxx * 3;
-    for (int i = 0; i < cpy_height; ++i) {
-        // memmove row by row
-        // use memmove because src and dst may overlap (e.g. translations)
-        memmove(dst, src, cpy_width_3);
-        src += buffer_width_3;
-        dst += buffer_width_3;
     }
 }
 
@@ -792,10 +887,12 @@ void swapAndMirrorYSubsquares(unsigned char *buffer_frame, unsigned buffer_width
  * Note2: You can assume the object will never be moved off the screen
  **********************************************************************************************************************/
 unsigned char *processMoveUp(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
+    // printf("Up %d\n", offset);
     #ifndef USE_TRANSLATEOPTS
     unsigned char *ret = processMoveUpReference(buffer_frame, width, height, offset);
     #ifdef USE_ISWHITEAREA
-    populateIsWhiteArea(buffer_frame, width, height);
+    updateIsWhiteAreaUpOffset(buffer_frame, width, offset);
+    // populateIsWhiteArea(buffer_frame, width, height);
     #endif
     return ret;
 
@@ -810,7 +907,8 @@ unsigned char *processMoveUp(unsigned char *buffer_frame, unsigned width, unsign
     memset(buffer_frame + (height - offset) * widthPixels, 255, difference);
     
     #ifdef USE_ISWHITEAREA
-    populateIsWhiteArea(buffer_frame, width, height);
+    updateIsWhiteAreaUpOffset(buffer_frame, width, offset);
+    // populateIsWhiteArea(buffer_frame, width, height);
     #endif
     // return a pointer to the updated image buffer
     return buffer_frame;
@@ -828,11 +926,13 @@ unsigned char *processMoveUp(unsigned char *buffer_frame, unsigned width, unsign
  * Note2: You can assume the object will never be moved off the screen
  **********************************************************************************************************************/
 unsigned char *processMoveRight(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
+    unsigned wsArrayDimensions = numFullStridesX + (middleSquareDimensions != 0);
     #ifndef USE_TRANSLATEOPTS
 
     unsigned char *ret = processMoveRightReference(buffer_frame, width, height, offset);
     #ifdef USE_ISWHITEAREA
-    populateIsWhiteArea(buffer_frame, width, height);
+    updateIsWhiteAreaRightOffset(buffer_frame, width, offset);
+    // populateIsWhiteArea(buffer_frame, width, height);
     #endif
     return ret;
 
@@ -849,7 +949,8 @@ unsigned char *processMoveRight(unsigned char *buffer_frame, unsigned width, uns
       rowBegin += widthTriple;
     }
     #ifdef USE_ISWHITEAREA
-    populateIsWhiteArea(buffer_frame, width, height);
+    updateIsWhiteAreaRightOffset(buffer_frame, width, offset);
+    // populateIsWhiteArea(buffer_frame, width, height);
     #endif
     // return a pointer to the updated image buffer
     return buffer_frame;
@@ -1828,6 +1929,7 @@ unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, u
     int ws_top_index_base = 0, ws_top_index = 0;
     int ws_bottom_index_base = whiteSpaceArrayWidth * (whiteSpaceArrayHeight - 1);
     int ws_bottom_index = ws_bottom_index_base;
+    int temp_bool;
 
     int px_x = 0; // same for top and bottom
     int top_px_y = 0; // top left of this square
@@ -1837,6 +1939,9 @@ unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, u
         for (ws_col = 0; ws_col < numFullStridesX_div_2; ++ws_col) {
             if (!isWhiteArea[ws_top_index] || !isWhiteArea[ws_bottom_index]) {
                 swapAndMirrorXSubsquares(buffer_frame, width, px_x, top_px_y, px_x, bottom_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                temp_bool = isWhiteArea[ws_top_index];
+                isWhiteArea[ws_top_index] = isWhiteArea[ws_bottom_index];
+                isWhiteArea[ws_bottom_index] = temp_bool;
             }
             ++ws_top_index;
             ++ws_bottom_index;
@@ -1866,6 +1971,9 @@ unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, u
         for (ws_col = numFullStridesX_div_2 + (middleSquareDimensions != 0); ws_col < whiteSpaceArrayWidth; ++ws_col) {
             if (!isWhiteArea[ws_top_index] || !isWhiteArea[ws_bottom_index]) {
                 swapAndMirrorXSubsquares(buffer_frame, width, px_x, top_px_y, px_x, bottom_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                temp_bool = isWhiteArea[ws_top_index];
+                isWhiteArea[ws_top_index] = isWhiteArea[ws_bottom_index];
+                isWhiteArea[ws_bottom_index] = temp_bool;
             }
             ++ws_top_index;
             ++ws_bottom_index;
@@ -1881,9 +1989,57 @@ unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, u
         top_px_y += isWhiteAreaStride; // down a stride
         bottom_px_y -= isWhiteAreaStride; // up a stride
     }
-    // TODO: middle column special case
-    // TODO: middle row special case, split row in half to do it inline
-    // TODO: middle square special case, split in half along x axis to do it inline
+    if (middleSquareDimensions != 0) {
+        // middle column special case
+        ws_col = numFullStridesX_div_2;
+        top_px_y = 0;
+        bottom_px_y = height - 1;
+        px_x = ws_col * isWhiteAreaStride;
+        ws_top_index = numFullStridesX_div_2;
+        ws_bottom_index = whiteSpaceArrayWidth * (whiteSpaceArrayHeight - 1) + numFullStridesX_div_2;
+        for (ws_row = 0; ws_row < numFullStridesY_div_2; ++ws_row) {
+            if (!isWhiteArea[ws_top_index] || !isWhiteArea[ws_bottom_index]) {
+                swapAndMirrorXSubsquares(buffer_frame, width, px_x, top_px_y, px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
+                temp_bool = isWhiteArea[ws_top_index];
+                isWhiteArea[ws_top_index] = isWhiteArea[ws_bottom_index];
+                isWhiteArea[ws_bottom_index] = temp_bool;
+            }
+            ws_top_index += whiteSpaceArrayWidth;
+            ws_bottom_index -= whiteSpaceArrayWidth;
+            top_px_y += isWhiteAreaStride;
+            bottom_px_y -= isWhiteAreaStride;
+        }
+        // TODO: middle row special case, split row in half to do it inline
+        top_px_y = isWhiteAreaStride * numFullStridesY_div_2;
+        bottom_px_y = top_px_y + middleSquareDimensions - 1;
+        px_x = 0;
+        ws_top_index = numFullStridesY_div_2 * whiteSpaceArrayWidth;
+        unsigned middleColHeight_div_2 = middleSquareDimensions / 2;
+        for (ws_col = 0; ws_col < numFullStridesX_div_2; ++ws_col) {
+            if (!isWhiteArea[ws_top_index]){
+                swapAndMirrorXSubsquares(buffer_frame, width, px_x, top_px_y, px_x, bottom_px_y, isWhiteAreaStride, middleColHeight_div_2);
+            }
+            ws_top_index++;
+            px_x += isWhiteAreaStride;
+            // no swaps required
+        }
+        // TODO: middle square special case, split in half along x axis to do it inline
+        if (!isWhiteArea[ws_top_index]) {
+            swapAndMirrorXSubsquares(buffer_frame, width, px_x, top_px_y, px_x, bottom_px_y, middleSquareDimensions, middleColHeight_div_2);
+            // no whitespace update required
+        }
+        ws_top_index++;
+        px_x += middleSquareDimensions;
+        for (ws_col = numFullStridesX_div_2 + 1; ws_col < whiteSpaceArrayWidth; ++ws_col) {
+            if (!isWhiteArea[ws_top_index]){
+                swapAndMirrorXSubsquares(buffer_frame, width, px_x, top_px_y, px_x, bottom_px_y, isWhiteAreaStride, middleColHeight_div_2);
+            }
+            ws_top_index++;
+            px_x += isWhiteAreaStride;
+            // no swaps required
+        }
+    }
+    return buffer_frame;
     #endif
     #endif
 }
@@ -1899,10 +2055,16 @@ unsigned char *processMirrorY(unsigned char *buffer_frame, unsigned width, unsig
     #ifndef USE_MIRROROPTS
     return processMirrorYReference(buffer_frame, width, height, _unused);
     #else
-    // TODO: only swap and mirror non-white squares.
-    swapAndMirrorYSubsquares(buffer_frame, width, 0, 0, width-1, 0, width/2, height);
-    // TODO: once everything is done in-place, wont need this return anymore
-    return buffer_frame;
+        #ifndef USE_ISWHITEAREA
+        // TODO: only swap and mirror non-white squares.
+        swapAndMirrorYSubsquares(buffer_frame, width, 0, 0, width-1, 0, width/2, height);
+        // TODO: once everything is done in-place, wont need this return anymore
+        return buffer_frame;
+        #else
+        swapAndMirrorYSubsquares(buffer_frame, width, 0, 0, width-1, 0, width/2, height);
+        populateIsWhiteArea(buffer_frame, width, height);
+        return buffer_frame;
+        #endif
     #endif
 }
 
