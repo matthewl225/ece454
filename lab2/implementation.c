@@ -537,6 +537,7 @@ void moveRectInlineRotate90CCWAndBlankSrc(unsigned char* buffer_frame, unsigned 
     for (int src_row = 0; src_row < cpy_height; ++src_row) {
         for (int src_col = 0; src_col < cpy_width; ++src_col) {
             dst[0] = src[0];
+            src[0] = 255;
             dst[1] = src[1];
             dst[2] = src[2];
             dst -= buffer_width_3;
@@ -561,6 +562,7 @@ void moveRectInlineRotate180AndBlankSrc(unsigned char* buffer_frame, unsigned bu
     for (int src_col = 0; src_col < cpy_height; ++src_col) {
         for (int src_row = 0; src_row < cpy_width; ++src_row) {
             dst[0] = src[0];
+            src[0] = 255;
             dst[1] = src[1];
             dst[2] = src[2];
             dst -= 3;
@@ -586,6 +588,7 @@ void moveRectInlineRotate90CWAndBlankSrc(unsigned char* buffer_frame, unsigned b
     for (int src_row = 0; src_row < cpy_height; ++src_row) {
         for (int src_col = 0; src_col < cpy_width; ++src_col) {
             dst[0] = src[0];
+            src[0] = 255;
             dst[1] = src[1];
             dst[2] = src[2];
             dst -= buffer_width_3;
