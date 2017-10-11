@@ -523,6 +523,83 @@ void moveRectInlineRotate90CW(unsigned char* buffer_frame, unsigned buffer_width
 
 // TODO: write moveRectInlineRotate*AndBlankSrc, then wont need blankSquare in processRotateCCW or processRotateCW, more cache efficient
 
+// AndBlankSrc version of moveRectInline functions
+
+// this should only be called with relatively small (20x20) areas
+// also src and dst should not overlap
+void moveRectInlineRotate90CCWAndBlankSrc(unsigned char* buffer_frame, unsigned buffer_width, unsigned src_pxx, unsigned src_pxy, unsigned dst_pxx, unsigned dst_pxy, unsigned cpy_width, unsigned cpy_height) {
+    // printf("Moving from (%d,%d) to (%d,%d) size: %d x %d with 90 deg CCW rotation\n", src_pxx, src_pxy, dst_pxx, dst_pxy, cpy_width, cpy_height);
+    const unsigned buffer_width_3 = buffer_width * 3;
+    unsigned char *src_base = buffer_frame + buffer_width_3 * src_pxy + src_pxx * 3; // first row first column
+    unsigned char *dst_base = buffer_frame + buffer_width_3 * (dst_pxy + cpy_width - 1) + dst_pxx * 3; // last row first column
+    unsigned char *src = src_base;
+    unsigned char *dst = dst_base;
+    for (int src_row = 0; src_row < cpy_height; ++src_row) {
+        for (int src_col = 0; src_col < cpy_width; ++src_col) {
+            dst[0] = src[0];
+            dst[1] = src[1];
+            dst[2] = src[2];
+            dst -= buffer_width_3;
+            src += 3;
+        }
+        // move src down a row and to the first column
+        src_base += buffer_width_3;
+        src = src_base;
+        // move dst to the bottom row and next column over
+        dst_base += 3;
+        dst = dst_base;
+    }
+}
+
+void moveRectInlineRotate180AndBlankSrc(unsigned char* buffer_frame, unsigned buffer_width, unsigned src_pxx, unsigned src_pxy, unsigned dst_pxx, unsigned dst_pxy, unsigned cpy_width, unsigned cpy_height) {
+    // printf("Rotating (%d, %d) to (%d, %d)\n", src_pxx, src_pxy, dst_pxx, dst_pxy);
+    const unsigned buffer_width_3 = buffer_width * 3;
+    unsigned char *src_base = buffer_frame + buffer_width_3 * src_pxy + src_pxx * 3; // first row first col
+    unsigned char *dst_base = buffer_frame + buffer_width_3 * (dst_pxy + cpy_height - 1) + (dst_pxx + cpy_width - 1) * 3;// last row last col
+    unsigned char *src = src_base;
+    unsigned char *dst = dst_base;
+    for (int src_col = 0; src_col < cpy_height; ++src_col) {
+        for (int src_row = 0; src_row < cpy_width; ++src_row) {
+            dst[0] = src[0];
+            dst[1] = src[1];
+            dst[2] = src[2];
+            dst -= 3;
+            src += 3;
+        }
+        // move src down a row and to the first column
+        src_base += buffer_width_3;
+        src = src_base;
+        // move dst up a row and to the last column
+        dst_base -= buffer_width_3;
+        dst = dst_base;
+    }
+}
+
+// assuming dst and src don't overlap
+void moveRectInlineRotate90CWAndBlankSrc(unsigned char* buffer_frame, unsigned buffer_width, unsigned src_pxx, unsigned src_pxy, unsigned dst_pxx, unsigned dst_pxy, unsigned cpy_width, unsigned cpy_height) {
+    // printf("Moving from (%d,%d) to (%d,%d) size: %d x %d with 90 deg CW rotation\n", src_pxx, src_pxy, dst_pxx, dst_pxy, cpy_width, cpy_height);
+    const unsigned buffer_width_3 = buffer_width * 3;
+    unsigned char *src_base = buffer_frame + buffer_width_3 * src_pxy + (src_pxx + cpy_width - 1) * 3; // first row last col
+    unsigned char *dst_base = buffer_frame + buffer_width_3 * (dst_pxy + cpy_width - 1) + (dst_pxx + cpy_height - 1) * 3;// last row last col
+    unsigned char *src = src_base;
+    unsigned char *dst = dst_base;
+    for (int src_row = 0; src_row < cpy_height; ++src_row) {
+        for (int src_col = 0; src_col < cpy_width; ++src_col) {
+            dst[0] = src[0];
+            dst[1] = src[1];
+            dst[2] = src[2];
+            dst -= buffer_width_3;
+            src -= 3;
+        }
+        // move src down a row and to the last column
+        src_base += buffer_width_3;
+        src = src_base;
+        // move dst to the bottom row and next column to the left
+        dst_base -= 3;
+        dst = dst_base;
+    }
+}
+
 // we know that dst and src don't overlap
 void moveTempToBufferRotate90CW(unsigned char* buffer_frame, unsigned char *temp, unsigned buffer_width, unsigned dst_pxx, unsigned dst_pxy, unsigned temp_width, unsigned temp_height) {
     // printf("Moving from temp buffer to rect (%d, %d) size %d x %d with a 90 deg CW rotation\n", dst_pxx, dst_pxy, temp_width, temp_height);
