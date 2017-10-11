@@ -498,6 +498,7 @@ void updateIsWhiteAreaDownOffset(unsigned char *buffer_frame, unsigned buffer_wi
 }
 
 void populateIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned height) {
+    // printf("Populating IsWhiteArea\n");
     const bool hasMiddleSquare = (middleSquareDimensions != 0);
     unsigned int boolArrayWidth = numFullStridesX + hasMiddleSquare;
     unsigned int boolArrayHeight = numFullStridesY + hasMiddleSquare;
@@ -615,6 +616,7 @@ void createIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned hei
 
 /* Helper Functions */
 void blankSquare(unsigned char *buffer_frame, unsigned buffer_width, unsigned pxx, unsigned pxy, unsigned blank_width, unsigned blank_height) {
+    // printf("Blanking square (%d, %d) %dx%d\n", pxx, pxy, blank_width, blank_height);
     unsigned const blank_width_3 = blank_width * 3;
     unsigned const buffer_width_3 = buffer_width * 3;
     unsigned char *target = buffer_frame + buffer_width_3 * pxy + pxx * 3;
@@ -629,6 +631,7 @@ void blankSquare(unsigned char *buffer_frame, unsigned buffer_width, unsigned px
 // this should only be called with relatively small (20x20) areas
 // also src and dst should not overlap
 void moveRectInlineRotate90CCW(unsigned char* buffer_frame, unsigned buffer_width, unsigned src_pxx, unsigned src_pxy, unsigned dst_pxx, unsigned dst_pxy, unsigned cpy_width, unsigned cpy_height) {
+    // printf("Moving from (%d,%d) to (%d,%d) size: %d x %d with 90 deg CCW rotation\n", src_pxx, src_pxy, dst_pxx, dst_pxy, cpy_width, cpy_height);
     const unsigned buffer_width_3 = buffer_width * 3;
     unsigned char *src_base = buffer_frame + buffer_width_3 * src_pxy + src_pxx * 3; // first row first column
     unsigned char *dst_base = buffer_frame + buffer_width_3 * (dst_pxy + cpy_width - 1) + dst_pxx * 3; // last row first column
@@ -756,11 +759,12 @@ void moveTempToBufferRotate180(unsigned char* buffer_frame, unsigned char *temp,
 }
 
 void moveTempToBufferRotate90CCW(unsigned char* buffer_frame, unsigned char *temp, unsigned buffer_width, unsigned dst_pxx, unsigned dst_pxy, unsigned temp_width, unsigned temp_height) {
+    // printf("90CCW temp to buff location (%d, %d), %dx%d\n", dst_pxx, dst_pxy, temp_width, temp_height);
     const unsigned buffer_width_3 = buffer_width * 3;
     const unsigned temp_width_3 = temp_width * 3;
 
     unsigned char *src_base = temp; // top row, first col
-    unsigned char *dst_base = buffer_frame  + buffer_width_3 * (dst_pxy + temp_width - 1) + dst_pxx * 3; // bottom row, first col
+    unsigned char *dst_base = buffer_frame + buffer_width_3 * (dst_pxy + temp_width - 1) + dst_pxx * 3; // bottom row, first col
     unsigned char *src = src_base;
     unsigned char *dst = dst_base;
     for (int row = 0; row < temp_height; ++row) {
@@ -771,7 +775,7 @@ void moveTempToBufferRotate90CCW(unsigned char* buffer_frame, unsigned char *tem
             dst -= buffer_width_3; // move up 1 row
             src += 3; // move right 1 column
         }
-        // move dst col left, bottom row
+        // move dst col right, bottom row
         dst_base += 3;
         dst = dst_base;
         // move src next row down, first col
@@ -1720,7 +1724,6 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         moveTempToBufferRotate180(buffer_frame, temp_square, width, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
                         break;
 
-                    // TODO fix me
                     case 0b0100:
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
@@ -1745,7 +1748,6 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         moveTempToBufferRotate180(buffer_frame, temp_square, width, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
                         break;
 
-                    // TODO fix me
                     case 0b0011:
                         translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
@@ -1899,8 +1901,426 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
  **********************************************************************************************************************/
 unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, unsigned height,
                                 int rotate_iteration) {
+    #ifndef USE_ISWHITEAREA
     return processRotateCCWReference(buffer_frame, width, height, rotate_iteration);
+    #else
     // our condenser limits this to be a 90 deg CCW rotation
+    int const whiteSpaceArrayWidth = numFullStridesX + (middleSquareDimensions != 0);
+    int const whiteSpaceArrayHeight = whiteSpaceArrayWidth;
+    unsigned tl_px_x, tl_px_y;
+    unsigned tr_px_x, tr_px_y;
+    unsigned bl_px_x, bl_px_y;
+    unsigned br_px_x, br_px_y;
+    for (int row = 0; row < whiteSpaceArrayHeight / 2; ++row) {
+        for (int col = 0; col < whiteSpaceArrayWidth / 2; ++col) {
+            // printf("Rotating ws array (%d, %d) and its associated squares\n", col, row);
+            int TL_index = row * whiteSpaceArrayWidth + col;
+            int BL_index = (whiteSpaceArrayHeight - 1 - col) * whiteSpaceArrayWidth + row;
+            int BR_index = (whiteSpaceArrayHeight - 1 - row) * whiteSpaceArrayWidth + (whiteSpaceArrayWidth - col - 1);
+            int TR_index = col * whiteSpaceArrayWidth + (whiteSpaceArrayWidth - row - 1);
+            int condition_hash = (!isWhiteArea[TL_index] << 3) +
+                                    (!isWhiteArea[TR_index] << 2) +
+                                    (!isWhiteArea[BR_index] << 1) +
+                                    (!isWhiteArea[BL_index]);
+            // if (condition_hash != 0) printf("Rotating WS square (%d, %d), hash: %d\n", col, row, condition_hash);
+            switch (condition_hash) {
+                // if (!TL && !BL && !BR && !TR) don't need to rotate blank squares
+                case 0b0000: continue; break;
+                // else if (!TL && !TR && !BR && BL) writeRot90 BL into TL, blank BL
+                case 0b0001:
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, bl_px_x, bl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    break;
+
+                // else if (!TL && !TR && BR && !BL) writeRot90 BR into BL, blank BR
+                case 0b0010:
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - row - 1, col, whiteSpaceArrayWidth, &tr_px_x, &tr_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, br_px_x, br_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    break;
+
+                // else if (!TL && TR && !BR && !BL) writeRot90 TR into BR, blank TR
+                case 0b0100:
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - row - 1, col, whiteSpaceArrayWidth, &tr_px_x, &tr_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, tr_px_x, tr_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    break;
+
+                // else if (TL && !TR && !BR && !BL) writeRot90 TL into TR, blank TL
+                case 0b1000:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, tl_px_x, tl_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    break;
+
+                // else if (!TL && !TR && BR && BL) writeRot90 BL into TL, writeRot90 BR into BL, blank BR
+                case 0b0011:
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - row - 1, col, whiteSpaceArrayWidth, &tr_px_x, &tr_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, br_px_x, br_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, bl_px_x, bl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    break;
+
+                // else if (!TL && TR && !BR && BL) writeRot90 TR into BR, writeRot90 BL into TL, blank BL, blank TR
+                case 0b0101:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - row - 1, col, whiteSpaceArrayWidth, &tr_px_x, &tr_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, tr_px_x, tr_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, bl_px_x, bl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    break;
+
+                // else if (!TL && TR && BR && !BL) writeRot90 BR into BL, writeRot90 TR into BR, blank TR
+                case 0b0110:
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - row - 1, col, whiteSpaceArrayWidth, &tr_px_x, &tr_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, tr_px_x, tr_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, br_px_x, br_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    break;
+
+                // else if (TL && !TR && !BR && BL) writeRot90 TL into TR, writeRot90 BL into TL, blank BL
+                case 0b1001:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, bl_px_x, bl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, tl_px_x, tl_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    break;
+
+                // else if (TL && !TR && BR && !BL) writeRot90 TL into TR, writeRot90 BR into BL, blank TL, blank BR
+                case 0b1010:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - row - 1, col, whiteSpaceArrayWidth, &tr_px_x, &tr_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, tl_px_x, tl_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, br_px_x, br_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    break;
+
+                // else if (TL && TR && !BR && !BL) writeRot90 TR into BR, writeRot90 TL into TR, blank TL
+                case 0b1100:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - row - 1, col, whiteSpaceArrayWidth, &tr_px_x, &tr_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, tl_px_x, tl_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, tr_px_x, tr_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    break;
+
+                // else if (TL && TR && BR && !BL) writeRot90 BR into BL, writeRot90 TR into BR, writeRot90 TL into TR, blank TL
+                case 0b1110:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - row - 1, col, whiteSpaceArrayWidth, &tr_px_x, &tr_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, tl_px_x, tl_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, tr_px_x, tr_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, br_px_x, br_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    break;
+
+                // else if (TL && TR && !BR && BL) writeRot90 TR into BR, writeRot90 TL into TR, writeRot90 BL into TL, blank BL
+                case 0b1101:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - row - 1, col, whiteSpaceArrayWidth, &tr_px_x, &tr_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, bl_px_x, bl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, tl_px_x, tl_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, tr_px_x, tr_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    break;
+
+                // else if (TL && !TR && BR && BL) writeRot90 TL into TR, BL into TL, BR into BL, blank BR
+                case 0b1011:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - row - 1, col, whiteSpaceArrayWidth, &tr_px_x, &tr_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, br_px_x, br_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, bl_px_x, bl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, tl_px_x, tl_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    break;
+
+                // else if (!TL && TR && BR && BL) writeRot90 BL into TL, writeRot90 BR into BL, writeRot90 TR into BR, blank TR
+                case 0b0111:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - row - 1, col, whiteSpaceArrayWidth, &tr_px_x, &tr_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, tr_px_x, tr_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, br_px_x, br_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, bl_px_x, bl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    break;
+
+                // if (TL && TR && BR && BL) write BL into temp buffer, writeRot90 BR into BL, TR into BR, TL into TR, temp into TL
+                case 0b1111:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - row - 1, col, whiteSpaceArrayWidth, &tr_px_x, &tr_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
+
+                    moveRectToTemp(buffer_frame, temp_square, width, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride); // TR to temp
+                    moveRectInlineRotate90CCW(buffer_frame, width, br_px_x, br_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride); // BR to BL
+                    moveRectInlineRotate90CCW(buffer_frame, width, bl_px_x, bl_px_y,  br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride); // BL to TL
+                    moveRectInlineRotate90CCW(buffer_frame, width, tl_px_x,  tl_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride); // TL to TR
+                    moveTempToBufferRotate90CCW(buffer_frame, temp_square, width, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride); // temp to BR
+                    break;
+            }
+            // rotate white space array
+            bool temp_bool = isWhiteArea[TL_index];
+            isWhiteArea[TL_index] = isWhiteArea[TR_index];
+            isWhiteArea[TR_index] = isWhiteArea[BR_index];
+            isWhiteArea[BR_index] = isWhiteArea[BL_index];
+            isWhiteArea[BL_index] = temp_bool;
+        }
+    }
+    if (middleSquareDimensions != 0) {
+        // middle columns and rows
+        // printf("processing middle cols and rows\n");
+        int col = whiteSpaceArrayWidth / 2;
+        unsigned top_px_x, top_px_y;
+        unsigned right_px_x, right_px_y;
+        unsigned bottom_px_x, bottom_px_y;
+        unsigned left_px_x, left_px_y;
+        for (int row = 0; row < whiteSpaceArrayHeight / 2; ++row) {
+            int top_col_index = row * whiteSpaceArrayWidth + col;
+            int left_row_index = (whiteSpaceArrayHeight / 2) * whiteSpaceArrayWidth + row;
+            int right_row_index = (whiteSpaceArrayHeight / 2) * whiteSpaceArrayWidth + (whiteSpaceArrayWidth - row - 1);
+            int bottom_col_index = (whiteSpaceArrayHeight - 1 - row) * whiteSpaceArrayWidth + col;
+            int condition_hash = (!isWhiteArea[top_col_index] << 3) +
+                                    (!isWhiteArea[right_row_index] << 2) +
+                                    (!isWhiteArea[bottom_col_index] << 1) +
+                                    (!isWhiteArea[left_row_index]);
+            // if (condition_hash != 0) printf("Rotating Middle Col WS square (%d, %d), hash: %d\n", col, row, condition_hash);
+            switch (condition_hash) {
+                case 0b0000: continue; break;
+                case 0b0001: // left into bottom, blank left
+                    translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, left_px_x, left_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    blankSquare(buffer_frame, width, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    break;
+
+                // bottom into right, blank bottom
+                case 0b0010:
+                    translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, bottom_px_x, bottom_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    break;
+
+                // right into top, blank right
+                case 0b0100:
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, right_px_x, right_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    blankSquare(buffer_frame, width, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    break;
+
+                // top into left, blank top
+                case 0b1000:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, top_px_x, top_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    break;
+
+                // bottom into right, left into bottom, blank left
+                case 0b0011:
+                    translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, bottom_px_x, bottom_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, left_px_x, left_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    blankSquare(buffer_frame, width, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    break;
+
+                // right into top, left into bottom, blank right blank left
+                case 0b0101:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, right_px_x, right_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    blankSquare(buffer_frame, width, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    moveRectInlineRotate90CCW(buffer_frame, width, left_px_x, left_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    blankSquare(buffer_frame, width, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    break;
+
+                // right into top, bottom into right, blank bottom
+                case 0b0110:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, right_px_x, right_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    moveRectInlineRotate90CCW(buffer_frame, width, bottom_px_x, bottom_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    break;
+
+                // left into bottom, top in to left, blank top
+                case 0b1001:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, left_px_x, left_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    moveRectInlineRotate90CCW(buffer_frame, width, top_px_x, top_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    break;
+
+                // top in to left, bottom into right, blank top blank bottom
+                case 0b1010:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, top_px_x, top_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, bottom_px_x, bottom_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    break;
+
+                // top into left, right into top, blank right
+                case 0b1100:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, top_px_x, top_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, right_px_x, right_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    blankSquare(buffer_frame, width, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    break;
+
+                // top into left, right into top, bottom into right, blank bottom
+                case 0b1110:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, top_px_x, top_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, right_px_x, right_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    moveRectInlineRotate90CCW(buffer_frame, width, bottom_px_x, bottom_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    break;
+
+                // left into bottom, top into left, right into top, blank right
+                case 0b1101:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, left_px_x, left_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    moveRectInlineRotate90CCW(buffer_frame, width, top_px_x, top_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, right_px_x, right_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    blankSquare(buffer_frame, width, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    break;
+
+                // bottom into right, left into bottom, top into left, blank top
+                case 0b1011:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, bottom_px_x, bottom_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, left_px_x, left_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    moveRectInlineRotate90CCW(buffer_frame, width, top_px_x, top_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    blankSquare(buffer_frame, width, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    break;
+
+                // right into top, bottom into right, left into bottom, blank left
+                case 0b0111:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
+
+                    moveRectInlineRotate90CCW(buffer_frame, width, right_px_x, right_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    moveRectInlineRotate90CCW(buffer_frame, width, bottom_px_x, bottom_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    moveRectInlineRotate90CCW(buffer_frame, width, left_px_x, left_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    blankSquare(buffer_frame, width, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    break;
+
+                // TODO left off here
+                // right to temp, bottom to right, left to bottom, top to left, temp to top
+                case 0b1111:
+                    translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
+                    translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
+
+                    moveRectToTemp(buffer_frame, temp_square, width, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions); // Right to temp
+                    moveRectInlineRotate90CCW(buffer_frame, width, bottom_px_x, bottom_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride); // BR to Bottom
+                    moveRectInlineRotate90CCW(buffer_frame, width, left_px_x, left_px_y,  bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions); // Bottom to Top
+                    moveRectInlineRotate90CCW(buffer_frame, width, top_px_x,  top_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride); // Top to Right
+                    moveTempToBufferRotate90CCW(buffer_frame, temp_square, width, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions); // temp to BR
+                    break;
+            }                
+
+            // Update whitespace array
+            bool temp_bool = isWhiteArea[top_col_index];
+            isWhiteArea[top_col_index] = isWhiteArea[right_row_index];
+            isWhiteArea[right_row_index] = isWhiteArea[bottom_col_index];
+            isWhiteArea[bottom_col_index] = isWhiteArea[left_row_index];
+            isWhiteArea[left_row_index] = temp_bool;
+
+            top_col_index += whiteSpaceArrayWidth; // down 1 row
+            bottom_col_index -= whiteSpaceArrayWidth; // up 1 row
+            --right_row_index; // left one column
+            ++left_row_index; // right one column
+
+        }
+        if (!isWhiteArea[whiteSpaceArrayWidth * (whiteSpaceArrayHeight / 2) + (whiteSpaceArrayWidth / 2)]) {
+            translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth / 2, whiteSpaceArrayHeight / 2, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y); // reusing tl_px_* for middle square
+            moveRectToTemp(buffer_frame, temp_square, width, tl_px_x, tl_px_y, middleSquareDimensions, middleSquareDimensions);
+            moveTempToBufferRotate90CCW(buffer_frame, temp_square, width, tl_px_x, tl_px_y, middleSquareDimensions, middleSquareDimensions);
+        }
+        // no whitespace array update required
+    }
+    return buffer_frame;
+    #endif
 }
 
 /***********************************************************************************************************************
