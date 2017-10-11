@@ -418,19 +418,6 @@ void createIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned hei
 
 
 /* Helper Functions */
-void blankSquare(unsigned char *buffer_frame, unsigned buffer_width, unsigned pxx, unsigned pxy, unsigned blank_width, unsigned blank_height) {
-    // printf("Blanking square (%d, %d) %dx%d\n", pxx, pxy, blank_width, blank_height);
-    unsigned const blank_width_3 = blank_width * 3;
-    unsigned const buffer_width_3 = buffer_width * 3;
-    unsigned char *target = buffer_frame + buffer_width_3 * pxy + pxx * 3;
-    for (int row = 0; row < blank_height; ++row) {
-        // set row to 255,255,255...
-        memset(target, 255, blank_width_3);
-        // move down a row
-        target += buffer_width_3;
-    }
-}
-
 void moveRectInline(unsigned char* buffer_frame, unsigned buffer_width, unsigned src_pxx, unsigned src_pxy, unsigned dst_pxx, unsigned dst_pxy, unsigned cpy_width, unsigned cpy_height) {
     const unsigned buffer_width_3 = buffer_width * 3;
     const unsigned cpy_width_3 = cpy_width * 3;
@@ -977,8 +964,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
 
-                        moveRectInlineRotate90CW(buffer_frame, width, bl_px_x, bl_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, bl_px_x, bl_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // else if (!TL && !TR && BR && !BL) writeRot90 BR into BL, blank BR
@@ -986,8 +972,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
 
-                        moveRectInlineRotate90CW(buffer_frame, width, br_px_x, br_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, br_px_x, br_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // else if (!TL && TR && !BR && !BL) writeRot90 TR into BR, blank TR
@@ -995,8 +980,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - row - 1, col, whiteSpaceArrayWidth, &tr_px_x, &tr_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
 
-                        moveRectInlineRotate90CW(buffer_frame, width, tr_px_x, tr_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, tr_px_x, tr_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // else if (TL && !TR && !BR && !BL) writeRot90 TL into TR, blank TL
@@ -1004,8 +988,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - row - 1, col, whiteSpaceArrayWidth, &tr_px_x, &tr_px_y);
 
-                        moveRectInlineRotate90CW(buffer_frame, width, tl_px_x, tl_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, tl_px_x, tl_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // else if (!TL && !TR && BR && BL) writeRot90 BL into TL, writeRot90 BR into BL, blank BR
@@ -1015,8 +998,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
 
                         moveRectInlineRotate90CW(buffer_frame, width, bl_px_x, bl_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        moveRectInlineRotate90CW(buffer_frame, width, br_px_x, br_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, br_px_x, br_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // else if (!TL && TR && !BR && BL) writeRot90 TR into BR, writeRot90 BL into TL, blank BL, blank TR
@@ -1026,10 +1008,8 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
 
-                        moveRectInlineRotate90CW(buffer_frame, width, tr_px_x, tr_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        moveRectInlineRotate90CW(buffer_frame, width, bl_px_x, bl_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, tr_px_x, tr_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, bl_px_x, bl_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // else if (!TL && TR && BR && !BL) writeRot90 BR into BL, writeRot90 TR into BR, blank TR
@@ -1039,8 +1019,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
 
                         moveRectInlineRotate90CW(buffer_frame, width, br_px_x, br_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        moveRectInlineRotate90CW(buffer_frame, width, tr_px_x, tr_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, tr_px_x, tr_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // else if (TL && !TR && !BR && BL) writeRot90 TL into TR, writeRot90 BL into TL, blank BL
@@ -1050,8 +1029,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
 
                         moveRectInlineRotate90CW(buffer_frame, width, tl_px_x, tl_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        moveRectInlineRotate90CW(buffer_frame, width, bl_px_x, bl_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, bl_px_x, bl_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // else if (TL && !TR && BR && !BL) writeRot90 TL into TR, writeRot90 BR into BL, blank TL, blank BR
@@ -1061,10 +1039,8 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
 
-                        moveRectInlineRotate90CW(buffer_frame, width, tl_px_x, tl_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        moveRectInlineRotate90CW(buffer_frame, width, br_px_x, br_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, tl_px_x, tl_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, br_px_x, br_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // else if (TL && TR && !BR && !BL) writeRot90 TR into BR, writeRot90 TL into TR, blank TL
@@ -1074,8 +1050,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
 
                         moveRectInlineRotate90CW(buffer_frame, width, tr_px_x, tr_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        moveRectInlineRotate90CW(buffer_frame, width, tl_px_x, tl_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, tl_px_x, tl_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // else if (TL && TR && BR && !BL) writeRot90 BR into BL, writeRot90 TR into BR, writeRot90 TL into TR, blank TL
@@ -1087,8 +1062,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
 
                         moveRectInlineRotate90CW(buffer_frame, width, br_px_x, br_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         moveRectInlineRotate90CW(buffer_frame, width, tr_px_x, tr_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        moveRectInlineRotate90CW(buffer_frame, width, tl_px_x, tl_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, tl_px_x, tl_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // else if (TL && TR && !BR && BL) writeRot90 TR into BR, writeRot90 TL into TR, writeRot90 BL into TL, blank BL
@@ -1100,8 +1074,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
 
                         moveRectInlineRotate90CW(buffer_frame, width, tr_px_x, tr_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         moveRectInlineRotate90CW(buffer_frame, width, tl_px_x, tl_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        moveRectInlineRotate90CW(buffer_frame, width, bl_px_x, bl_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, bl_px_x, bl_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // else if (TL && !TR && BR && BL) writeRot90 TL into TR, BL into TL, BR into BL, blank BR
@@ -1113,8 +1086,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
 
                         moveRectInlineRotate90CW(buffer_frame, width, tl_px_x, tl_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         moveRectInlineRotate90CW(buffer_frame, width, bl_px_x, bl_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        moveRectInlineRotate90CW(buffer_frame, width, br_px_x, br_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, br_px_x, br_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // else if (!TL && TR && BR && BL) writeRot90 BL into TL, writeRot90 BR into BL, writeRot90 TR into BR, blank TR
@@ -1126,8 +1098,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
 
                         moveRectInlineRotate90CW(buffer_frame, width, bl_px_x, bl_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         moveRectInlineRotate90CW(buffer_frame, width, br_px_x, br_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        moveRectInlineRotate90CW(buffer_frame, width, tr_px_x, tr_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, tr_px_x, tr_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // if (TL && TR && BR && BL) write BL into temp buffer, writeRot90 BR into BL, TR into BR, TL into TR, temp into TL
@@ -1175,8 +1146,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
 
-                        moveRectInlineRotate90CW(buffer_frame, width, left_px_x, left_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        blankSquare(buffer_frame, width, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, left_px_x, left_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
                         break;
 
                     // bottom into left, blank bottom
@@ -1184,8 +1154,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
 
-                        moveRectInlineRotate90CW(buffer_frame, width, bottom_px_x, bottom_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, bottom_px_x, bottom_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
                         break;
 
                     // right into bottom, blank right
@@ -1193,8 +1162,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
 
-                        moveRectInlineRotate90CW(buffer_frame, width, right_px_x, right_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        blankSquare(buffer_frame, width, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, right_px_x, right_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
                         break;
 
                     // top into right, blank top
@@ -1202,8 +1170,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
 
-                        moveRectInlineRotate90CW(buffer_frame, width, top_px_x, top_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, top_px_x, top_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
                         break;
 
                     // left into top, bottom into left, blank bottom
@@ -1213,8 +1180,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
 
                         moveRectInlineRotate90CW(buffer_frame, width, left_px_x, left_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        moveRectInlineRotate90CW(buffer_frame, width, bottom_px_x, bottom_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, bottom_px_x, bottom_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
                         break;
 
                     // right into bottom, left into top, blank right blank left
@@ -1224,10 +1190,8 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
 
-                        moveRectInlineRotate90CW(buffer_frame, width, right_px_x, right_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        blankSquare(buffer_frame, width, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        moveRectInlineRotate90CW(buffer_frame, width, left_px_x, left_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        blankSquare(buffer_frame, width, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, right_px_x, right_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, left_px_x, left_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
                         break;
 
                     // bottom into left, right into bottom, blank right
@@ -1238,8 +1202,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
 
                         moveRectInlineRotate90CW(buffer_frame, width, bottom_px_x, bottom_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        moveRectInlineRotate90CW(buffer_frame, width, right_px_x, right_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        blankSquare(buffer_frame, width, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, right_px_x, right_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
                         break;
 
                     // top in to right, left into top, blank left
@@ -1249,8 +1212,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
 
                         moveRectInlineRotate90CW(buffer_frame, width, top_px_x, top_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        moveRectInlineRotate90CW(buffer_frame, width, left_px_x, left_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        blankSquare(buffer_frame, width, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, left_px_x, left_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
                         break;
 
                     // top in to right, bottom into left, blank top blank bottom
@@ -1260,10 +1222,8 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
 
-                        moveRectInlineRotate90CW(buffer_frame, width, top_px_x, top_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        moveRectInlineRotate90CW(buffer_frame, width, bottom_px_x, bottom_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, top_px_x, top_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, bottom_px_x, bottom_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
                         break;
 
                     // right into bottom, top into right, blank top
@@ -1273,8 +1233,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
 
                         moveRectInlineRotate90CW(buffer_frame, width, right_px_x, right_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        moveRectInlineRotate90CW(buffer_frame, width, top_px_x, top_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, top_px_x, top_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
                         break;
 
                     // bottom into left, right into bottom, top into right, blank top
@@ -1286,8 +1245,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
 
                         moveRectInlineRotate90CW(buffer_frame, width, bottom_px_x, bottom_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
                         moveRectInlineRotate90CW(buffer_frame, width, right_px_x, right_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        moveRectInlineRotate90CW(buffer_frame, width, top_px_x, top_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, top_px_x, top_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
                         break;
 
                     // right into bottom, top into right, left into top, blank left
@@ -1299,8 +1257,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
 
                         moveRectInlineRotate90CW(buffer_frame, width, right_px_x, right_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
                         moveRectInlineRotate90CW(buffer_frame, width, top_px_x, top_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        moveRectInlineRotate90CW(buffer_frame, width, left_px_x, left_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        blankSquare(buffer_frame, width, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, left_px_x, left_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
                         break;
 
                     // top into right, left into top, bottom into left, blank bottom
@@ -1312,8 +1269,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
 
                         moveRectInlineRotate90CW(buffer_frame, width, top_px_x, top_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
                         moveRectInlineRotate90CW(buffer_frame, width, left_px_x, left_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        moveRectInlineRotate90CW(buffer_frame, width, bottom_px_x, bottom_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, bottom_px_x, bottom_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
                         break;
 
                     // left into top, bottom into left, right into bottom, blank right
@@ -1325,8 +1281,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
 
                         moveRectInlineRotate90CW(buffer_frame, width, left_px_x, left_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
                         moveRectInlineRotate90CW(buffer_frame, width, bottom_px_x, bottom_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        moveRectInlineRotate90CW(buffer_frame, width, right_px_x, right_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        blankSquare(buffer_frame, width, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
+                        moveRectInlineRotate90CWAndBlankSrc(buffer_frame, width, right_px_x, right_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
                         break;
 
                     // right to temp, top to right, left to top, bottom to left, temp to bottom
@@ -1385,8 +1340,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - row - 1, col, whiteSpaceArrayWidth, &tr_px_x, &tr_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
 
-                        moveRectInlineRotate180(buffer_frame, width, bl_px_x, bl_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, bl_px_x, bl_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // BR into TL, blank BR
@@ -1394,8 +1348,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
 
-                        moveRectInlineRotate180(buffer_frame, width, br_px_x, br_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, br_px_x, br_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // TR into BL, blank TR
@@ -1403,8 +1356,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - row - 1, col, whiteSpaceArrayWidth, &tr_px_x, &tr_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
 
-                        moveRectInlineRotate180(buffer_frame, width, tr_px_x, tr_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, tr_px_x, tr_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // TL into BR, blank TL
@@ -1412,8 +1364,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
 
-                        moveRectInlineRotate180(buffer_frame, width, tl_px_x, tl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, tl_px_x, tl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // BR into TL, BL into TR, blank BR, blank BL
@@ -1423,11 +1374,9 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
 
-                        moveRectInlineRotate180(buffer_frame, width, br_px_x, br_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, br_px_x, br_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
 
-                        moveRectInlineRotate180(buffer_frame, width, bl_px_x, bl_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, bl_px_x, bl_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // TR into temp, BL into TR, temp into BL
@@ -1447,11 +1396,9 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
 
-                        moveRectInlineRotate180(buffer_frame, width, tr_px_x, tr_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, tr_px_x, tr_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
 
-                        moveRectInlineRotate180(buffer_frame, width, br_px_x, br_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, br_px_x, br_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // TL into BR, BL into TR, blank TL, blank BL
@@ -1461,11 +1408,9 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
 
-                        moveRectInlineRotate180(buffer_frame, width, bl_px_x, bl_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, bl_px_x, bl_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
 
-                        moveRectInlineRotate180(buffer_frame, width, tl_px_x, tl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, tl_px_x, tl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // BR into temp, TL into BR, temp into TL
@@ -1485,10 +1430,8 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
 
-                        moveRectInlineRotate180(buffer_frame, width, tl_px_x, tl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        moveRectInlineRotate180(buffer_frame, width, tr_px_x, tr_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, tl_px_x, tl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, tr_px_x, tr_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // TL into temp, BR into TL, temp into BR, TR into BL, blank TR
@@ -1502,8 +1445,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         moveRectInlineRotate180(buffer_frame, width, br_px_x, br_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         moveTempToBufferRotate180(buffer_frame, temp_square, width, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
 
-                        moveRectInlineRotate180(buffer_frame, width, tr_px_x, tr_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, tr_px_x, tr_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // TL into BR, blank TL, TR into temp, BL into TR, temp into BL
@@ -1513,8 +1455,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
 
-                        moveRectInlineRotate180(buffer_frame, width, tl_px_x, tl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, tl_px_x, tl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
 
                         moveRectToTemp(buffer_frame, temp_square, width, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         moveRectInlineRotate180(buffer_frame, width, bl_px_x, bl_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
@@ -1532,8 +1473,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         moveRectInlineRotate180(buffer_frame, width, br_px_x, br_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         moveTempToBufferRotate180(buffer_frame, temp_square, width, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
 
-                        moveRectInlineRotate180(buffer_frame, width, bl_px_x, bl_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, bl_px_x, bl_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // BR into TL, blank BR, BL into temp, TR into BL, temp into TR
@@ -1547,8 +1487,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         moveRectInlineRotate180(buffer_frame, width, tr_px_x, tr_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         moveTempToBufferRotate180(buffer_frame, temp_square, width, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
 
-                        moveRectInlineRotate180(buffer_frame, width, br_px_x, br_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, br_px_x, br_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                         break;
 
                     // TL into temp, BR into TL, temp into BR, TR into temp, BL into TR, temp into BL
@@ -1601,16 +1540,14 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
 
-                        moveRectInlineRotate180(buffer_frame, width, top_px_x, top_px_y, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, top_px_x, top_px_y, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
                         break;
 
                     case 0b0010:
                         translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
 
-                        moveRectInlineRotate180(buffer_frame, width, bottom_px_x, bottom_px_y, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, bottom_px_x, bottom_px_y, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
                         break;
 
                     case 0b1010:
@@ -1626,16 +1563,14 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
 
-                        moveRectInlineRotate180(buffer_frame, width, right_px_x, right_px_y, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        blankSquare(buffer_frame, width, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, right_px_x, right_px_y, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
                         break;
                         
                     case 0b0001:
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
 
-                        moveRectInlineRotate180(buffer_frame, width, left_px_x, left_px_y, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        blankSquare(buffer_frame, width, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, left_px_x, left_px_y, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
                         break;
                     case 0b0101:
                         translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
@@ -1652,11 +1587,9 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
 
-                        moveRectInlineRotate180(buffer_frame, width, bottom_px_x, bottom_px_y, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, bottom_px_x, bottom_px_y, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
 
-                        moveRectInlineRotate180(buffer_frame, width, left_px_x, left_px_y, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        blankSquare(buffer_frame, width, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, left_px_x, left_px_y, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
                         break;
                     case 0b0110:
                         translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
@@ -1664,24 +1597,20 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
 
-                        moveRectInlineRotate180(buffer_frame, width, bottom_px_x, bottom_px_y, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, bottom_px_x, bottom_px_y, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
 
-                        moveRectInlineRotate180(buffer_frame, width, right_px_x, right_px_y, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        blankSquare(buffer_frame, width, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, right_px_x, right_px_y, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
                         break;
                     case 0b1001:
                         translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
 
-                        moveRectInlineRotate180(buffer_frame, width, top_px_x, top_px_y, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, top_px_x, top_px_y, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
 
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
 
-                        moveRectInlineRotate180(buffer_frame, width, left_px_x, left_px_y, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        blankSquare(buffer_frame, width, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, left_px_x, left_px_y, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
                         break;
                     case 0b1100:
                         translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
@@ -1689,11 +1618,9 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
 
-                        moveRectInlineRotate180(buffer_frame, width, top_px_x, top_px_y, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, top_px_x, top_px_y, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
 
-                        moveRectInlineRotate180(buffer_frame, width, right_px_x, right_px_y, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        blankSquare(buffer_frame, width, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, right_px_x, right_px_y, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
                         break;
                     case 0b1110:
                         translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
@@ -1705,8 +1632,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         moveRectInlineRotate180(buffer_frame, width, bottom_px_x, bottom_px_y, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
                         moveTempToBufferRotate180(buffer_frame, temp_square, width, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
 
-                        moveRectInlineRotate180(buffer_frame, width, right_px_x, right_px_y, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        blankSquare(buffer_frame, width, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, right_px_x, right_px_y, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
                         break;
                     case 0b1101:
                         translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
@@ -1714,8 +1640,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
 
-                        moveRectInlineRotate180(buffer_frame, width, top_px_x, top_px_y, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, top_px_x, top_px_y, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
 
                         moveRectToTemp(buffer_frame, temp_square, width, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
                         moveRectInlineRotate180(buffer_frame, width, right_px_x, right_px_y, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
@@ -1731,8 +1656,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         moveRectInlineRotate180(buffer_frame, width, bottom_px_x, bottom_px_y, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
                         moveTempToBufferRotate180(buffer_frame, temp_square, width, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
 
-                        moveRectInlineRotate180(buffer_frame, width, left_px_x, left_px_y, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
-                        blankSquare(buffer_frame, width, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, left_px_x, left_px_y, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
                         break;
                     case 0b0111:
                         translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
@@ -1740,8 +1664,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                         translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
                         translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
 
-                        moveRectInlineRotate180(buffer_frame, width, bottom_px_x, bottom_px_y, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
-                        blankSquare(buffer_frame, width, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
+                        moveRectInlineRotate180AndBlankSrc(buffer_frame, width, bottom_px_x, bottom_px_y, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
 
                         moveRectToTemp(buffer_frame, temp_square, width, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
                         moveRectInlineRotate180(buffer_frame, width, right_px_x, right_px_y, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
@@ -1829,8 +1752,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
                     translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
                     translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
 
-                    moveRectInlineRotate90CCW(buffer_frame, width, bl_px_x, bl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, bl_px_x, bl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
                     break;
 
                 // else if (!TL && !TR && BR && !BL) writeRot90 BR into BL, blank BR
@@ -1838,8 +1760,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
                     translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
                     translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - row - 1, col, whiteSpaceArrayWidth, &tr_px_x, &tr_px_y);
 
-                    moveRectInlineRotate90CCW(buffer_frame, width, br_px_x, br_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, br_px_x, br_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
                     break;
 
                 // else if (!TL && TR && !BR && !BL) writeRot90 TR into BR, blank TR
@@ -1847,8 +1768,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
                     translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - row - 1, col, whiteSpaceArrayWidth, &tr_px_x, &tr_px_y);
                     translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y);
 
-                    moveRectInlineRotate90CCW(buffer_frame, width, tr_px_x, tr_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, tr_px_x, tr_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                     break;
 
                 // else if (TL && !TR && !BR && !BL) writeRot90 TL into TR, blank TL
@@ -1856,8 +1776,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
                     translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y);
                     translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
 
-                    moveRectInlineRotate90CCW(buffer_frame, width, tl_px_x, tl_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, tl_px_x, tl_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                     break;
 
                 // else if (!TL && !TR && BR && BL) writeRot90 BL into TL, writeRot90 BR into BL, blank BR
@@ -1867,8 +1786,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
                     translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
 
                     moveRectInlineRotate90CCW(buffer_frame, width, br_px_x, br_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    moveRectInlineRotate90CCW(buffer_frame, width, bl_px_x, bl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, bl_px_x, bl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
                     break;
 
                 // else if (!TL && TR && !BR && BL) writeRot90 TR into BR, writeRot90 BL into TL, blank BL, blank TR
@@ -1878,10 +1796,8 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
                     translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
                     translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
 
-                    moveRectInlineRotate90CCW(buffer_frame, width, tr_px_x, tr_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    moveRectInlineRotate90CCW(buffer_frame, width, bl_px_x, bl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, tr_px_x, tr_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, bl_px_x, bl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
                     break;
 
                 // else if (!TL && TR && BR && !BL) writeRot90 BR into BL, writeRot90 TR into BR, blank TR
@@ -1891,8 +1807,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
                     translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y);
 
                     moveRectInlineRotate90CCW(buffer_frame, width, tr_px_x, tr_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    moveRectInlineRotate90CCW(buffer_frame, width, br_px_x, br_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, br_px_x, br_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
                     break;
 
                 // else if (TL && !TR && !BR && BL) writeRot90 TL into TR, writeRot90 BL into TL, blank BL
@@ -1902,8 +1817,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
                     translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
 
                     moveRectInlineRotate90CCW(buffer_frame, width, bl_px_x, bl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    moveRectInlineRotate90CCW(buffer_frame, width, tl_px_x, tl_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, tl_px_x, tl_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                     break;
 
                 // else if (TL && !TR && BR && !BL) writeRot90 TL into TR, writeRot90 BR into BL, blank TL, blank BR
@@ -1913,10 +1827,8 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
                     translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - col - 1, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &br_px_x, &br_px_y);
                     translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
 
-                    moveRectInlineRotate90CCW(buffer_frame, width, tl_px_x, tl_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    moveRectInlineRotate90CCW(buffer_frame, width, br_px_x, br_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, tl_px_x, tl_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, br_px_x, br_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
                     break;
 
                 // else if (TL && TR && !BR && !BL) writeRot90 TR into BR, writeRot90 TL into TR, blank TL
@@ -1926,8 +1838,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
                     translateWhiteSpaceArrayIndicesToPixel(row, whiteSpaceArrayHeight - 1 - col, whiteSpaceArrayWidth, &bl_px_x, &bl_px_y);
 
                     moveRectInlineRotate90CCW(buffer_frame, width, tl_px_x, tl_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    moveRectInlineRotate90CCW(buffer_frame, width, tr_px_x, tr_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, tr_px_x, tr_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                     break;
 
                 // else if (TL && TR && BR && !BL) writeRot90 BR into BL, writeRot90 TR into BR, writeRot90 TL into TR, blank TL
@@ -1939,8 +1850,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
 
                     moveRectInlineRotate90CCW(buffer_frame, width, tl_px_x, tl_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                     moveRectInlineRotate90CCW(buffer_frame, width, tr_px_x, tr_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    moveRectInlineRotate90CCW(buffer_frame, width, br_px_x, br_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, br_px_x, br_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
                     break;
 
                 // else if (TL && TR && !BR && BL) writeRot90 TR into BR, writeRot90 TL into TR, writeRot90 BL into TL, blank BL
@@ -1952,8 +1862,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
 
                     moveRectInlineRotate90CCW(buffer_frame, width, bl_px_x, bl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
                     moveRectInlineRotate90CCW(buffer_frame, width, tl_px_x, tl_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    moveRectInlineRotate90CCW(buffer_frame, width, tr_px_x, tr_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, tr_px_x, tr_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                     break;
 
                 // else if (TL && !TR && BR && BL) writeRot90 TL into TR, BL into TL, BR into BL, blank BR
@@ -1965,8 +1874,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
 
                     moveRectInlineRotate90CCW(buffer_frame, width, br_px_x, br_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
                     moveRectInlineRotate90CCW(buffer_frame, width, bl_px_x, bl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    moveRectInlineRotate90CCW(buffer_frame, width, tl_px_x, tl_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, tl_px_x, tl_px_y, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                     break;
 
                 // else if (!TL && TR && BR && BL) writeRot90 BL into TL, writeRot90 BR into BL, writeRot90 TR into BR, blank TR
@@ -1978,8 +1886,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
 
                     moveRectInlineRotate90CCW(buffer_frame, width, tr_px_x, tr_px_y, tl_px_x, tl_px_y, isWhiteAreaStride, isWhiteAreaStride);
                     moveRectInlineRotate90CCW(buffer_frame, width, br_px_x, br_px_y, tr_px_x, tr_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    moveRectInlineRotate90CCW(buffer_frame, width, bl_px_x, bl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, bl_px_x, bl_px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, bl_px_x, bl_px_y, br_px_x, br_px_y, isWhiteAreaStride, isWhiteAreaStride);
                     break;
 
                 // if (TL && TR && BR && BL) write BL into temp buffer, writeRot90 BR into BL, TR into BR, TL into TR, temp into TL
@@ -2028,8 +1935,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
                     translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
                     translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
 
-                    moveRectInlineRotate90CCW(buffer_frame, width, left_px_x, left_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
-                    blankSquare(buffer_frame, width, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, left_px_x, left_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
                     break;
 
                 // bottom into right, blank bottom
@@ -2037,8 +1943,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
                     translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
                     translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
 
-                    moveRectInlineRotate90CCW(buffer_frame, width, bottom_px_x, bottom_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, bottom_px_x, bottom_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
                     break;
 
                 // right into top, blank right
@@ -2046,8 +1951,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
                     translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
                     translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
 
-                    moveRectInlineRotate90CCW(buffer_frame, width, right_px_x, right_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
-                    blankSquare(buffer_frame, width, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, right_px_x, right_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
                     break;
 
                 // top into left, blank top
@@ -2055,8 +1959,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
                     translateWhiteSpaceArrayIndicesToPixel(col, row, whiteSpaceArrayWidth, &top_px_x, &top_px_y);
                     translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
 
-                    moveRectInlineRotate90CCW(buffer_frame, width, top_px_x, top_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, top_px_x, top_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
                     break;
 
                 // bottom into right, left into bottom, blank left
@@ -2066,8 +1969,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
                     translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth - 1 - row, col, whiteSpaceArrayWidth, &right_px_x, &right_px_y);
 
                     moveRectInlineRotate90CCW(buffer_frame, width, bottom_px_x, bottom_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
-                    moveRectInlineRotate90CCW(buffer_frame, width, left_px_x, left_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
-                    blankSquare(buffer_frame, width, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, left_px_x, left_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
                     break;
 
                 // right into top, left into bottom, blank right blank left
@@ -2077,10 +1979,8 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
                     translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
                     translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
 
-                    moveRectInlineRotate90CCW(buffer_frame, width, right_px_x, right_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
-                    blankSquare(buffer_frame, width, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
-                    moveRectInlineRotate90CCW(buffer_frame, width, left_px_x, left_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
-                    blankSquare(buffer_frame, width, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, right_px_x, right_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, left_px_x, left_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
                     break;
 
                 // right into top, bottom into right, blank bottom
@@ -2090,8 +1990,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
                     translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
 
                     moveRectInlineRotate90CCW(buffer_frame, width, right_px_x, right_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
-                    moveRectInlineRotate90CCW(buffer_frame, width, bottom_px_x, bottom_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, bottom_px_x, bottom_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
                     break;
 
                 // left into bottom, top in to left, blank top
@@ -2101,8 +2000,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
                     translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
 
                     moveRectInlineRotate90CCW(buffer_frame, width, left_px_x, left_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
-                    moveRectInlineRotate90CCW(buffer_frame, width, top_px_x, top_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, top_px_x, top_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
                     break;
 
                 // top in to left, bottom into right, blank top blank bottom
@@ -2112,10 +2010,8 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
                     translateWhiteSpaceArrayIndicesToPixel(col, whiteSpaceArrayHeight - row - 1, whiteSpaceArrayWidth, &bottom_px_x, &bottom_px_y);
                     translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
 
-                    moveRectInlineRotate90CCW(buffer_frame, width, top_px_x, top_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
-                    moveRectInlineRotate90CCW(buffer_frame, width, bottom_px_x, bottom_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, top_px_x, top_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, bottom_px_x, bottom_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
                     break;
 
                 // top into left, right into top, blank right
@@ -2125,8 +2021,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
                     translateWhiteSpaceArrayIndicesToPixel(row, col, whiteSpaceArrayWidth, &left_px_x, &left_px_y);
 
                     moveRectInlineRotate90CCW(buffer_frame, width, top_px_x, top_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
-                    moveRectInlineRotate90CCW(buffer_frame, width, right_px_x, right_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
-                    blankSquare(buffer_frame, width, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, right_px_x, right_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
                     break;
 
                 // top into left, right into top, bottom into right, blank bottom
@@ -2138,8 +2033,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
 
                     moveRectInlineRotate90CCW(buffer_frame, width, top_px_x, top_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
                     moveRectInlineRotate90CCW(buffer_frame, width, right_px_x, right_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
-                    moveRectInlineRotate90CCW(buffer_frame, width, bottom_px_x, bottom_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, bottom_px_x, bottom_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, bottom_px_x, bottom_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
                     break;
 
                 // left into bottom, top into left, right into top, blank right
@@ -2151,8 +2045,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
 
                     moveRectInlineRotate90CCW(buffer_frame, width, left_px_x, left_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
                     moveRectInlineRotate90CCW(buffer_frame, width, top_px_x, top_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
-                    moveRectInlineRotate90CCW(buffer_frame, width, right_px_x, right_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
-                    blankSquare(buffer_frame, width, right_px_x, right_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, right_px_x, right_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
                     break;
 
                 // bottom into right, left into bottom, top into left, blank top
@@ -2164,8 +2057,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
 
                     moveRectInlineRotate90CCW(buffer_frame, width, bottom_px_x, bottom_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
                     moveRectInlineRotate90CCW(buffer_frame, width, left_px_x, left_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
-                    moveRectInlineRotate90CCW(buffer_frame, width, top_px_x, top_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
-                    blankSquare(buffer_frame, width, top_px_x, top_px_y, middleSquareDimensions, isWhiteAreaStride);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, top_px_x, top_px_y, left_px_x, left_px_y, middleSquareDimensions, isWhiteAreaStride);
                     break;
 
                 // right into top, bottom into right, left into bottom, blank left
@@ -2177,8 +2069,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
 
                     moveRectInlineRotate90CCW(buffer_frame, width, right_px_x, right_px_y, top_px_x, top_px_y, isWhiteAreaStride, middleSquareDimensions);
                     moveRectInlineRotate90CCW(buffer_frame, width, bottom_px_x, bottom_px_y, right_px_x, right_px_y, middleSquareDimensions, isWhiteAreaStride);
-                    moveRectInlineRotate90CCW(buffer_frame, width, left_px_x, left_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
-                    blankSquare(buffer_frame, width, left_px_x, left_px_y, isWhiteAreaStride, middleSquareDimensions);
+                    moveRectInlineRotate90CCWAndBlankSrc(buffer_frame, width, left_px_x, left_px_y, bottom_px_x, bottom_px_y, isWhiteAreaStride, middleSquareDimensions);
                     break;
 
                 // TODO left off here
