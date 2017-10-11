@@ -694,6 +694,113 @@ void swapAndMirrorYSubsquares(unsigned char *buffer_frame, unsigned buffer_width
     }
 }
 
+// source, destination, 
+// length of bytes to move, pixel array in bytes, height of a row
+void translateLR (unsigned char * px_src_tl, unsigned char * px_dst_tl, 
+    unsigned px_length, unsigned px_width_triple, unsigned ws_stride) {
+  //printf("translateLR\n");
+  for (unsigned px_row = 0; px_row < ws_stride; px_row++) {
+    memmove (px_dst_tl, px_src_tl, px_length);
+    px_dst_tl += px_width_triple;
+    px_src_tl += px_width_triple;
+  }
+}
+
+// whitespace row index, row array offset, middle index, 
+// pixel width and offset in bytes, pixel width in pixels, pixel stride height of ws
+// pointer to buffer frame
+void leftColLR(unsigned ws_row_idx, unsigned ws_array_offset, unsigned ws_middle_idx,
+    unsigned px_width_triple, unsigned offset_triple, unsigned px_width, unsigned px_height,
+    unsigned char * buffer_frame) {
+  //printf("leftcolLR\n");
+  unsigned ws_col_idx, ws_curr_idx, ws_start_idx;
+  unsigned px_length_triple, px_x_src_tl, px_y_src_tl;
+  unsigned char *px_row_tl, *px_src_tl;
+  bool ws_length = false;
+  int offset_difference_triple;
+
+  //
+  for (ws_col_idx = 0; ws_col_idx < ws_middle_idx; ws_col_idx++) {
+    ws_curr_idx = ws_array_offset + ws_col_idx;
+    if (!isWhiteArea[ws_curr_idx]){
+      if (!ws_length) {
+        ws_length = true;
+        ws_start_idx = ws_curr_idx; // keep track of first square
+      }
+    }
+    if (ws_length && (isWhiteArea[ws_curr_idx] || ws_col_idx == ws_middle_idx - 1)) {
+      px_length_triple = 3 * (ws_curr_idx - ws_start_idx);
+
+      translateWhiteSpaceArrayIndicesToPixel(0, ws_row_idx, &px_x_src_tl, &px_y_src_tl);
+      px_row_tl = buffer_frame + 3 * (px_y_src_tl * px_width + px_x_src_tl);
+      translateWhiteSpaceArrayIndicesToPixel(ws_curr_idx, ws_row_idx, &px_x_src_tl, &px_y_src_tl);
+      px_src_tl = buffer_frame + 3 * (px_y_src_tl * px_width + px_x_src_tl);
+
+      // offset to avoid overwriting to the left
+      offset_difference_triple = px_src_tl - px_src_tl - offset_triple;
+      if (offset_difference_triple < 0) {
+        px_length_triple += offset_difference_triple;
+        px_src_tl -= offset_difference_triple;
+      }
+      translateLR(px_src_tl, px_src_tl - offset_triple, 
+          px_length_triple, px_width_triple, px_height);
+
+      ws_length = false;
+    }
+  }
+}
+
+// whitespace row index, row array offset, middle index
+// pixel width and offset in bytes, pixel width in pixels, pixel stride height of ws, pixel middle col size in bytes
+// pointer to buffer frame
+void middleColLR(unsigned ws_row_idx, unsigned ws_array_offset, unsigned ws_middle_idx, 
+    unsigned px_width_triple, unsigned offset_triple, unsigned px_width, unsigned px_height, unsigned px_middle_dimensions_triple,
+    unsigned char * buffer_frame) {
+  unsigned px_x_src_tl, px_y_src_tl;
+  unsigned char *px_src_tl;
+  //printf("middle here\n");
+  if (middleSquareDimensions && !isWhiteArea[ws_array_offset + ws_middle_idx]){
+    //printf("loopM\n");
+    translateWhiteSpaceArrayIndicesToPixel(ws_middle_idx, ws_row_idx, &px_x_src_tl, &px_y_src_tl);
+    px_src_tl = buffer_frame + 3 * (px_y_src_tl * px_width + px_x_src_tl);
+    translateLR(px_src_tl, px_src_tl - offset_triple, 
+        px_middle_dimensions_triple, px_width_triple, px_height);
+  }
+}
+
+// whitespace row index, row array offset, middle index, total squares
+// pixel width and offset in bytes, pixel width in pixels, pixel stride height of ws, pixel middle col size in bytes
+// pointer to buffer frame
+void rightColLR(unsigned ws_row_idx, unsigned ws_array_offset, unsigned ws_middle_idx, unsigned ws_total_squares,
+    unsigned px_width_triple, unsigned offset_triple, unsigned px_width, unsigned px_height,
+    unsigned char * buffer_frame) {
+  //printf("rightcolLR\n");
+  unsigned ws_col_idx, ws_curr_idx, ws_start_idx;
+  unsigned px_length_triple, px_x_src_tl, px_y_src_tl;
+  unsigned char *px_src_tl;
+  bool ws_length = false;
+
+  for (ws_col_idx = ws_middle_idx + 1; ws_col_idx < ws_total_squares; ws_col_idx++) {
+    ws_curr_idx = ws_array_offset + ws_col_idx;
+    if (!isWhiteArea[ws_curr_idx]){
+      if (!ws_length) {
+        ws_length = true;
+        ws_start_idx = ws_curr_idx; // keep track of first square
+      }
+    }
+    if (ws_length && (isWhiteArea[ws_curr_idx] || ws_col_idx == ws_total_squares - 1)) {
+      px_length_triple = 3 * (ws_curr_idx - ws_start_idx);
+
+      translateWhiteSpaceArrayIndicesToPixel(ws_curr_idx, ws_row_idx, &px_x_src_tl, &px_y_src_tl);
+      px_src_tl = buffer_frame + 3 * (px_y_src_tl * px_width + px_x_src_tl);
+
+      translateLR(px_src_tl, px_src_tl - offset_triple, 
+          px_length_triple, px_width_triple, px_height);
+
+      ws_length = false;
+    }
+  }
+}
 
 /***********************************************************************************************************************
  * @param buffer_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
@@ -815,101 +922,108 @@ unsigned char *processMoveDown(unsigned char *buffer_frame, unsigned width, unsi
  * Note2: You can assume the object will never be moved off the screen
  **********************************************************************************************************************/
 unsigned char *processMoveLeft(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
-    #ifndef USE_TRANSLATEOPTS
-    unsigned char *ret = processMoveLeftReference(buffer_frame, width, height, offset);
-    #ifdef USE_ISWHITEAREA
-    populateIsWhiteArea(buffer_frame, width, height);
-    #endif
-    return ret;
+#ifndef USE_TRANSLATEOPTS
+  unsigned char *ret = processMoveLeftReference(buffer_frame, width, height, offset);
+#ifdef USE_ISWHITEAREA
+  populateIsWhiteArea(buffer_frame, width, height);
+#endif
+  return ret;
 
-    #else
+#else
 
-    // only do basic translation opts
-    int const widthTriple = 3 * width;
-    int const offsetTriple = 3 * offset;
-    int const shiftedTriple = widthTriple - offsetTriple; // the amount of pixels in RGB that actually get shifted
-    unsigned char *rowBegin = buffer_frame;
+  // only do basic translation opts
+  unsigned const pxWidthTriple = 3 * width;
+  unsigned const offsetTriple = 3 * offset;
+  unsigned const shiftedTriple = pxWidthTriple - offsetTriple; // the amount of pixels in RGB that actually get shifted
+  unsigned char *rowBegin = buffer_frame;
 
-    #ifndef USE_ISWHITEAREA
-    for (int row = 0; row < height; row++){
-      memmove(rowBegin, rowBegin + offsetTriple, shiftedTriple);
-      memset(rowBegin + shiftedTriple, 255, offsetTriple);
-      rowBegin += widthTriple;
-    }
-    #else
+#ifndef USE_ISWHITEAREA
+  for (unsigned row = 0; row < height; row++){
+    memmove(rowBegin, rowBegin + offsetTriple, shiftedTriple);
+    memset(rowBegin + shiftedTriple, 255, offsetTriple);
+    rowBegin += pxWidthTriple;
+  }
+#else
 
-    // whitespace optimization
-    unsigned wsLength = 0; // length of adjacent fullStride subsquares
-    unsigned wsCurrentRow; // row * width of the bool array
-    unsigned wsCurrentIdx; // row_square + column
-    unsigned const wsTotalSquares = middleSquareDimensions ? numFullStridesX + 1 : numFullStridesX;
-    unsigned const wsFullStridesHalf = numFullStridesX / 2; // FFF bitwise this
-    unsigned wsSrc = wsTotalSquares; // location of first subsquare in row, set to impossible value as marker
-    unsigned wsMiddleX;
+  // whitespace optimization
+  unsigned const wsTotalSquares = middleSquareDimensions ? numFullStridesX + 1 : numFullStridesX;
+  unsigned const middleSquareDimensionsTriple = middleSquareDimensions * 3;
+  unsigned wsRowIdx;
+  unsigned const numHalfStrides = numFullStridesX >> 1;
+  unsigned const wsMiddleIdx = middleSquareDimensions ? numHalfStrides : numHalfStrides - 1; // is this a bitwise shift
+  unsigned wsArrayOffset;
 
-    unsigned pxXSrc; // actually used multiple times but supposed to be src top left corner
-    unsigned pxYSrc;
-    unsigned pxLengthTriple; // total length of bytes to change
-    unsigned pxHeight; // number of rows to iterate over from subsquare
-    unsigned char *pxSrc = buffer_frame;
-    unsigned wsRow, wsCol, pxRow;
+  // actually only set it to half FFF double check math please
+  for (wsRowIdx = 0; wsRowIdx < wsMiddleIdx; wsRowIdx++) {
+    //printf("row T\n");
+    // set the height of this as the normal stride
+    wsArrayOffset = wsRowIdx * wsTotalSquares;
+    
+    // left
+    leftColLR(wsRowIdx, wsArrayOffset, wsMiddleIdx,
+        pxWidthTriple, offsetTriple, width, isWhiteAreaStride,
+        buffer_frame);
 
+    // if middle exists, do the middle thing
+    middleColLR(wsRowIdx, wsArrayOffset, wsMiddleIdx, 
+        pxWidthTriple, offsetTriple, width, isWhiteAreaStride, middleSquareDimensionsTriple,
+        buffer_frame); 
 
-    // go through each row
-    for (wsRow = 0; wsRow < wsTotalSquares; wsRow++){
-      wsCurrentRow = wsRow * wsTotalSquares;
+    // copy the top for loop again
+    rightColLR(wsRowIdx, wsArrayOffset, wsMiddleIdx, wsTotalSquares,
+        pxWidthTriple, offsetTriple, width, isWhiteAreaStride,
+        buffer_frame);
+  }
 
-      // for each row of subsquares, find nonwhite squares and translate those
-      for (wsCol = 0; wsCol < wsTotalSquares; wsCol++){
-        wsCurrentIdx = wsCurrentRow + wsCol;
+  if (middleSquareDimensions) {
+    //printf("row M\n");
+    // set the height of this as the normal stride
+    wsArrayOffset = wsRowIdx * wsTotalSquares;
 
-	// first nonwhite
-	if (!isWhiteArea[wsCurrentIdx] && wsSrc == wsTotalSquares){
-	  wsSrc = wsCurrentIdx;
-	  pxHeight = middleSquareDimensions && (wsCol == wsFullStridesHalf) ? middleSquareDimensions : isWhiteAreaStride; // consider if normal or middle row
-	} // white at the end of nonwhites or end of row lel
-	else if (wsSrc != wsTotalSquares && (isWhiteArea[wsCurrentIdx] || wsCurrentIdx == wsTotalSquares - 1)){
-	  wsLength = wsCurrentIdx - wsSrc;
-	  if (middleSquareDimensions && wsCurrentIdx > wsFullStridesHalf && wsSrc <= wsFullStridesHalf) { // only decrement the wsLength if the blocks span a middle block
-	    wsLength--;
-	    wsMiddleX = 1;
-	  } else {
-	    wsMiddleX = 0;
-	  }
+    // left
+    leftColLR(wsRowIdx, wsArrayOffset, wsMiddleIdx,
+        pxWidthTriple, offsetTriple, width, middleSquareDimensions,
+        buffer_frame);
 
-	  // get the beginning of the entire row in bytes
-	  translateWhiteSpaceArrayIndicesToPixel(0, wsRow, &pxXSrc, &pxYSrc);
-	  rowBegin = buffer_frame + 3 * (widthTriple * pxYSrc + pxXSrc);
+    // if middle exists, do the middle thing 
+    // FFF optimize by making the check first before sending everything to the function (take the if statement out of that)
+    middleColLR(wsRowIdx, wsArrayOffset, wsMiddleIdx, 
+        pxWidthTriple, offsetTriple, width, middleSquareDimensions, middleSquareDimensionsTriple,
+        buffer_frame); 
 
-	  // get the beginning of the subsquares
-	  translateWhiteSpaceArrayIndicesToPixel(wsSrc, wsRow, &pxXSrc, &pxYSrc);
-	  pxSrc = buffer_frame + 3 * (widthTriple * pxYSrc + pxXSrc);
+    // copy the top for loop again
+    rightColLR(wsRowIdx, wsArrayOffset, wsMiddleIdx, wsTotalSquares,
+        pxWidthTriple, offsetTriple, width, middleSquareDimensions,
+        buffer_frame);
+  }
 
-	  pxLengthTriple = 3 * (wsMiddleX * middleSquareDimensions + wsLength * isWhiteAreaStride);
-          if (pxSrc - offsetTriple < rowBegin) {
-	   pxLengthTriple -= offsetTriple;
-	   pxSrc += offsetTriple;
-	  }
+  for (wsRowIdx = wsMiddleIdx + 1; wsRowIdx < wsTotalSquares; wsRowIdx++) {
+    //printf("row B\n");
+    // set the height of this as the normal stride
+    wsArrayOffset = wsRowIdx * wsTotalSquares;
 
-	  // for each row of stride
-          for (pxRow = 0; pxRow < pxHeight; pxRow++){
-	    memmove(pxSrc - offsetTriple, pxSrc, pxLengthTriple);
-	    pxSrc += widthTriple;
-	    printf("here\n");
-	  }
+    // left
+    leftColLR(wsRowIdx, wsArrayOffset, wsMiddleIdx,
+        pxWidthTriple, offsetTriple, width, isWhiteAreaStride,
+        buffer_frame);
 
-	  // reset this value as a marker
-	  wsSrc = wsTotalSquares;
-	}
-      }
-    }
-    //return a pointer to the updated image buffer
-    populateIsWhiteArea(buffer_frame, width, height);
-    #endif
+    // if middle exists, do the middle thing
+    middleColLR(wsRowIdx, wsArrayOffset, wsMiddleIdx, 
+        pxWidthTriple, offsetTriple, width, isWhiteAreaStride, middleSquareDimensionsTriple,
+        buffer_frame); 
 
-    return buffer_frame;
+    // copy the top for loop again
+    rightColLR(wsRowIdx, wsArrayOffset, wsMiddleIdx, wsTotalSquares,
+        pxWidthTriple, offsetTriple, width, isWhiteAreaStride,
+        buffer_frame);
+  }
+  //return a pointer to the updated image buffer
+populateIsWhiteArea(buffer_frame, width, height);
+#endif
 
-    #endif
+return buffer_frame;
+
+#endif
 }
 
 /***********************************************************************************************************************
