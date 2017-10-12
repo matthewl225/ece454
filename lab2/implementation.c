@@ -290,8 +290,9 @@ bool checkWhiteAreaSquare(unsigned char *buffer_frame, unsigned buffer_pxwidth, 
     // printf("Checking square cornered at (%d, %d), width: %d height: %d\n", tl_px_x, tl_px_y, pxWidth, pxHeight);
     unsigned base_px_index = tl_px_y * buffer_pxwidth_3 + tl_px_x * 3;
     unsigned pixel_index = base_px_index;
-    for (int row = 0; row < pxHeight; ++row) {
-        for (int col = 0; col < pxWidth; ++col) {
+    int row, col;
+    for (row = 0; row < pxHeight; ++row) {
+        for (col = 0; col < pxWidth; ++col) {
             if (buffer_frame[pixel_index] != 255 ||
                 buffer_frame[pixel_index+1] != 255 ||
                 buffer_frame[pixel_index+2] != 255)
@@ -318,8 +319,9 @@ void updateIsWhiteAreaLeftOffset(unsigned char *buffer_frame, unsigned buffer_wi
     unsigned dst_ws_row, dst_ws_col, dst_row_wsDimensions;
     long dim_width, dim_height;
     // int num_checked = 0;
-    for (int row = 0; row < wsArrayDimensions; ++row) {
-        for (int col = 0; col < wsArrayDimensions; ++col) {
+    int row, col;
+    for (row = 0; row < wsArrayDimensions; ++row) {
+        for (col = 0; col < wsArrayDimensions; ++col) {
             if (isWhiteArea[row_wsArrayDimensions + col]) {
                 continue;
             }
@@ -376,8 +378,9 @@ void updateIsWhiteAreaRightOffset(unsigned char *buffer_frame, unsigned buffer_w
     unsigned dst_ws_row, dst_ws_col, dst_row_wsDimensions;
     long dim_width, dim_height;
     // int num_checked = 0;
-    for (int row = 0; row < wsArrayDimensions; ++row) {
-        for (int col = wsArrayDimensions - 1; col >= 0; --col) {
+    int row, col;
+    for (row = 0; row < wsArrayDimensions; ++row) {
+        for (col = wsArrayDimensions - 1; col >= 0; --col) {
             if (isWhiteArea[row_wsArrayDimensions + col]) {
                 continue;
             }
@@ -440,8 +443,9 @@ void updateIsWhiteAreaUpOffset(unsigned char *buffer_frame, unsigned buffer_widt
     unsigned dst_ws_row, dst_ws_col, dst_row_wsDimensions;
     long dim_width, dim_height;
     // int num_checked = 0;
-    for (int row = 0; row < wsArrayDimensions; ++row) {
-        for (int col = 0; col < wsArrayDimensions; ++col) {
+    int row, col;
+    for (row = 0; row < wsArrayDimensions; ++row) {
+        for (col = 0; col < wsArrayDimensions; ++col) {
             if (isWhiteArea[row_wsArrayDimensions + col]) {
                 continue;
             }
@@ -624,7 +628,8 @@ void blankSquare(unsigned char *buffer_frame, unsigned buffer_width, unsigned px
     unsigned const blank_width_3 = blank_width * 3;
     unsigned const buffer_width_3 = buffer_width * 3;
     unsigned char *target = buffer_frame + buffer_width_3 * pxy + pxx * 3;
-    for (int row = 0; row < blank_height; ++row) {
+    int row;
+    for (row = 0; row < blank_height; ++row) {
         // set row to 255,255,255...
         memset(target, 255, blank_width_3);
         // move down a row
@@ -641,8 +646,9 @@ void moveRectInlineRotate90CCW(unsigned char* buffer_frame, unsigned buffer_widt
     unsigned char *dst_base = buffer_frame + buffer_width_3 * (dst_pxy + cpy_width - 1) + dst_pxx * 3; // last row first column
     unsigned char *src = src_base;
     unsigned char *dst = dst_base;
-    for (int src_row = 0; src_row < cpy_height; ++src_row) {
-        for (int src_col = 0; src_col < cpy_width; ++src_col) {
+    int src_row, src_col;
+    for (src_row = 0; src_row < cpy_height; ++src_row) {
+        for (src_col = 0; src_col < cpy_width; ++src_col) {
             dst[0] = src[0];
             dst[1] = src[1];
             dst[2] = src[2];
@@ -665,8 +671,9 @@ void moveRectInlineRotate180(unsigned char* buffer_frame, unsigned buffer_width,
     unsigned char *dst_base = buffer_frame + buffer_width_3 * (dst_pxy + cpy_height - 1) + (dst_pxx + cpy_width - 1) * 3;// last row last col
     unsigned char *src = src_base;
     unsigned char *dst = dst_base;
-    for (int src_col = 0; src_col < cpy_height; ++src_col) {
-        for (int src_row = 0; src_row < cpy_width; ++src_row) {
+    int src_row, src_col;
+    for (src_col = 0; src_col < cpy_height; ++src_col) {
+        for (src_row = 0; src_row < cpy_width; ++src_row) {
             dst[0] = src[0];
             dst[1] = src[1];
             dst[2] = src[2];
@@ -690,8 +697,9 @@ void moveRectInlineRotate90CW(unsigned char* buffer_frame, unsigned buffer_width
     unsigned char *dst_base = buffer_frame + buffer_width_3 * (dst_pxy + cpy_width - 1) + (dst_pxx + cpy_height - 1) * 3;// last row last col
     unsigned char *src = src_base;
     unsigned char *dst = dst_base;
-    for (int src_row = 0; src_row < cpy_height; ++src_row) {
-        for (int src_col = 0; src_col < cpy_width; ++src_col) {
+    int src_row, src_col;
+    for (src_row = 0; src_row < cpy_height; ++src_row) {
+        for (src_col = 0; src_col < cpy_width; ++src_col) {
             dst[0] = src[0];
             dst[1] = src[1];
             dst[2] = src[2];
@@ -719,8 +727,9 @@ void moveTempToBufferRotate90CW(unsigned char* buffer_frame, unsigned char *temp
     unsigned char *dst_base = buffer_frame  + buffer_width_3 * (dst_pxy + temp_width - 1) + (dst_pxx + temp_height - 1) * 3; // bottom row, last col
     unsigned char *src = src_base;
     unsigned char *dst = dst_base;
-    for (int row = 0; row < temp_height; ++row) {
-        for (int col = 0; col < temp_width; ++col) {
+    int row, col;
+    for (row = 0; row < temp_height; ++row) {
+        for (col = 0; col < temp_width; ++col) {
             dst[0] = src[0];
             dst[1] = src[1];
             dst[2] = src[2];
@@ -745,8 +754,9 @@ void moveTempToBufferRotate180(unsigned char* buffer_frame, unsigned char *temp,
     unsigned char *dst_base = buffer_frame  + buffer_width_3 * (dst_pxy + temp_height - 1) + dst_pxx * 3; // bottom row, first col
     unsigned char *src = src_base;
     unsigned char *dst = dst_base;
-    for (int row = 0; row < temp_height; ++row) {
-        for (int col = 0; col < temp_width; ++col) {
+    int row, col;
+    for (row = 0; row < temp_height; ++row) {
+        for (col = 0; col < temp_width; ++col) {
             dst[0] = src[0];
             dst[1] = src[1];
             dst[2] = src[2];
@@ -771,8 +781,9 @@ void moveTempToBufferRotate90CCW(unsigned char* buffer_frame, unsigned char *tem
     unsigned char *dst_base = buffer_frame + buffer_width_3 * (dst_pxy + temp_width - 1) + dst_pxx * 3; // bottom row, first col
     unsigned char *src = src_base;
     unsigned char *dst = dst_base;
-    for (int row = 0; row < temp_height; ++row) {
-        for (int col = 0; col < temp_width; ++col) {
+    int row, col;
+    for (row = 0; row < temp_height; ++row) {
+        for (col = 0; col < temp_width; ++col) {
             dst[0] = src[0];
             dst[1] = src[1];
             dst[2] = src[2];
@@ -795,7 +806,8 @@ void moveRectToTemp(unsigned char* buffer_frame, unsigned char *temp, unsigned b
 
     unsigned char *src = buffer_frame + buffer_width_3 * src_pxy + src_pxx * 3; // top left pixel of src
     unsigned char *dst = temp; // 0,0 index of temp
-    for (int row = 0; row < cpy_height; ++row) {
+    int row;
+    for (row = 0; row < cpy_height; ++row) {
         // memcpy row by row
         // we can safely memcpy because temp is assumed to be a separate array from buffer_frame
         memcpy(dst, src, cpy_width_3);
@@ -810,7 +822,8 @@ void moveTempToBuffer(unsigned char* buffer_frame, unsigned char *temp, unsigned
 
     unsigned char *src = temp;
     unsigned char *dst = buffer_frame + buffer_width_3 * dst_pxy + dst_pxx * 3;
-    for (int i = 0; i < temp_height; ++i) {
+    int i;
+    for (i = 0; i < temp_height; ++i) {
         // memcpy row by row
         // we can safely memcpy because temp is assumed to be a separate array from buffer_frame
         memcpy(dst, src, temp_width_3);
@@ -830,7 +843,8 @@ void swapAndMirrorXSubsquares(unsigned char *buffer_frame, unsigned buffer_width
     unsigned char *temp = malloc(subsquare_width_3_sizeof_char);
     unsigned char *buffer_tl = buffer_frame + top_top_pxindex * buffer_width_3 + top_left_pxindex * 3;
     unsigned char *buffer_bl = buffer_frame + bottom_bottom_pxindex * buffer_width_3 + bottom_left_pxindex * 3;
-    for (int i = 0; i < subsquare_height; ++i) {
+    int i;
+    for (i = 0; i < subsquare_height; ++i) {
         memcpy(temp, buffer_tl, subsquare_width_3_sizeof_char);
         memcpy(buffer_tl, buffer_bl, subsquare_width_3_sizeof_char);
         memcpy(buffer_bl, temp, subsquare_width_3_sizeof_char);
@@ -854,12 +868,13 @@ void swapAndMirrorYSubsquares(unsigned char *buffer_frame, unsigned buffer_width
     // printf("MirrorY swapping the square at tl(%d,%d) with the square tr(%d,%d)\n", left_left_pxindex, left_top_pxindex, right_right_pxindex, right_top_pxindex);
     unsigned left_row_offset = left_top_pxindex * buffer_width_3;
     unsigned right_row_offset = right_top_pxindex * buffer_width_3;
-    for (int i = 0; i < subsquare_height; ++i) {
+    int i, j;
+    for (i = 0; i < subsquare_height; ++i) {
         // move to first element of next row down
         ll_index = left_left_pxindex_3 + left_row_offset;
         // move to last element of next row down
         rr_index = right_right_pxindex_3 + right_row_offset;
-        for (int j = 0; j < subsquare_width; ++j) {
+        for (j = 0; j < subsquare_width; ++j) {
             // swap red values of left and right, in mirrored x order
             // printf("\tSwapping red values located at %d(%d) and %d(%d)\n", ll_index, buffer_frame[ll_index], rr_index, buffer_frame[rr_index]);
             temp = buffer_frame[ll_index];
