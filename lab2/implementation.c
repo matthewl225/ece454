@@ -221,7 +221,7 @@ optimized_kv* collapse_sensor_values(struct kv *sensor_values, int sensor_values
  */
 
 #ifdef USE_ISWHITEAREA
-#define isWhiteAreaStride 21 // translates to 64 bytes, each pixel is 3 bytes
+#define isWhiteAreaStride 50 // translates to 64 bytes, each pixel is 3 bytes
 bool *isWhiteArea;
 unsigned char *temp_square;
 unsigned int numFullStridesX;
