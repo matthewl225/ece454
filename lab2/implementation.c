@@ -283,21 +283,25 @@ void translateWhiteSpaceArrayIndicesToPixel(unsigned ws_x, unsigned ws_y, unsign
 }
 
 bool checkWhiteAreaSquare(unsigned char *buffer_frame, unsigned buffer_pxwidth, unsigned whiteAreaCol, unsigned whiteAreaRow, unsigned pxWidth, unsigned pxHeight) {
+    const unsigned buffer_pxwidth_3 = buffer_pxwidth * 3;
+    
     unsigned tl_px_x, tl_px_y;
     translateWhiteSpaceArrayIndicesToPixel(whiteAreaCol, whiteAreaRow, numFullStridesX + (middleSquareDimensions != 0), &tl_px_x, &tl_px_y);
-    unsigned row_offset = tl_px_y * buffer_pxwidth * 3;
-    unsigned col_offset = tl_px_x * 3;
     // printf("Checking square cornered at (%d, %d), width: %d height: %d\n", tl_px_x, tl_px_y, pxWidth, pxHeight);
+    unsigned base_px_index = tl_px_y * buffer_pxwidth_3 + tl_px_x * 3;
+    unsigned pixel_index = base_px_index;
     for (int row = 0; row < pxHeight; ++row) {
         for (int col = 0; col < pxWidth; ++col) {
-            int pixel_index = row_offset + col_offset + row * buffer_pxwidth * 3 + col * 3;
             if (buffer_frame[pixel_index] != 255 ||
-                buffer_frame[pixel_index + 1] != 255 ||
-                buffer_frame[pixel_index + 2] != 255)
+                buffer_frame[pixel_index+1] != 255 ||
+                buffer_frame[pixel_index+2] != 255)
             {
                 return false;
             }
+            pixel_index += 3;
         }
+        base_px_index += buffer_pxwidth_3;
+        pixel_index = base_px_index;
     }
     return true;
 }
@@ -859,20 +863,21 @@ void swapAndMirrorYSubsquares(unsigned char *buffer_frame, unsigned buffer_width
             // swap red values of left and right, in mirrored x order
             // printf("\tSwapping red values located at %d(%d) and %d(%d)\n", ll_index, buffer_frame[ll_index], rr_index, buffer_frame[rr_index]);
             temp = buffer_frame[ll_index];
-            buffer_frame[ll_index++] = buffer_frame[rr_index];
-            buffer_frame[rr_index++] = temp;
+            buffer_frame[ll_index] = buffer_frame[rr_index];
+            buffer_frame[rr_index] = temp;
             // swap blue values of left and right, in mirrored x order
             // printf("\tSwapping blue values located at %d(%d) and %d(%d)\n", ll_index, buffer_frame[ll_index], rr_index, buffer_frame[rr_index]);
-            temp = buffer_frame[ll_index];
-            buffer_frame[ll_index++] = buffer_frame[rr_index];
-            buffer_frame[rr_index++] = temp;
+            temp = buffer_frame[ll_index+1];
+            buffer_frame[ll_index+1] = buffer_frame[rr_index+1];
+            buffer_frame[rr_index+1] = temp;
             // swap green values of left and right, in mirrored x order
             // printf("\tSwapping green values located at %d(%d) and %d(%d)\n", ll_index, buffer_frame[ll_index], rr_index, buffer_frame[rr_index]);
-            temp = buffer_frame[ll_index];
-            buffer_frame[ll_index++] = buffer_frame[rr_index];
-            buffer_frame[rr_index] = temp;
+            temp = buffer_frame[ll_index+2];
+            buffer_frame[ll_index+2] = buffer_frame[rr_index+2];
+            buffer_frame[rr_index+2] = temp;
 
-            rr_index -= 5; // move to the red value of the previous pixel on the right side frame
+            rr_index -= 3; // move to the red value of the previous pixel on the right side frame
+            ll_index += 3; // move to the red value of the next pixel
         }
         left_row_offset += buffer_width_3;
         right_row_offset += buffer_width_3;
