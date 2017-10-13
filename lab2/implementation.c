@@ -237,8 +237,8 @@ void translatePixelToWhiteSpaceArrayIndices(unsigned px_x, unsigned px_y, unsign
         *ws_x_out = px_x / isWhiteAreaStride;
         *ws_y_out = px_y / isWhiteAreaStride;
     } else {
-        const unsigned numFullStridesX_div_2 = numFullStridesX / 2;
-        const unsigned numFullStridesY_div_2 = numFullStridesY / 2;
+        const unsigned numFullStridesX_div_2 = numFullStridesX >> 1;
+        const unsigned numFullStridesY_div_2 = numFullStridesY >> 1;
         int test = px_x - (numFullStridesX_div_2 * isWhiteAreaStride);
         if (test < middleSquareDimensions && test >= 0) {
             // inside the middle
@@ -269,13 +269,13 @@ void translatePixelToWhiteSpaceArrayIndices(unsigned px_x, unsigned px_y, unsign
 
 // returns the top left pixel of the given white space array square
 void translateWhiteSpaceArrayIndicesToPixel(unsigned ws_x, unsigned ws_y, unsigned ws_width, unsigned *px_x_out, unsigned *px_y_out) {
-    if (middleSquareDimensions != 0 && ws_x > numFullStridesX / 2) {
+    if (middleSquareDimensions != 0 && ws_x > (numFullStridesX >> 1)) {
         *px_x_out = (ws_x - 1) * isWhiteAreaStride + middleSquareDimensions;
     } else {
         *px_x_out = ws_x * isWhiteAreaStride;
     }
 
-    if (middleSquareDimensions != 0 && ws_y > numFullStridesY / 2) {
+    if (middleSquareDimensions != 0 && ws_y > (numFullStridesY >> 1)) {
         *px_y_out = (ws_y - 1) * isWhiteAreaStride + middleSquareDimensions;
     } else {
         *px_y_out = ws_y * isWhiteAreaStride;
@@ -310,7 +310,7 @@ bool checkWhiteAreaSquare(unsigned char *buffer_frame, unsigned buffer_pxwidth, 
 void updateIsWhiteAreaLeftOffset(unsigned char *buffer_frame, unsigned buffer_width, unsigned left_offset) {
     // check how many strides to the left we have to check of every black square
     unsigned const wsArrayDimensions = numFullStridesX + (middleSquareDimensions != 0);
-    unsigned const numFullStridesX_div_2 = numFullStridesX / 2;
+    unsigned const numFullStridesX_div_2 = numFullStridesX >> 1;
     int const middleIndex = middleSquareDimensions != 0 ? numFullStridesX_div_2 : -1;
     // iterate top->bottom, left -> right
     unsigned row_wsArrayDimensions = 0;
@@ -373,7 +373,7 @@ void updateIsWhiteAreaLeftOffset(unsigned char *buffer_frame, unsigned buffer_wi
 void updateIsWhiteAreaRightOffset(unsigned char *buffer_frame, unsigned buffer_width, unsigned right_offset) {
     // check how many strides to the left we have to check of every black square
     unsigned const wsArrayDimensions = numFullStridesX + (middleSquareDimensions != 0);
-    unsigned const numFullStridesX_div_2 = numFullStridesX / 2;
+    unsigned const numFullStridesX_div_2 = numFullStridesX >> 1;
     int const middleIndex = middleSquareDimensions != 0 ? numFullStridesX_div_2 : -1;
     // iterate top->bottom, left -> right
     unsigned row_wsArrayDimensions = 0;
@@ -442,7 +442,7 @@ void updateIsWhiteAreaRightOffset(unsigned char *buffer_frame, unsigned buffer_w
 void updateIsWhiteAreaUpOffset(unsigned char *buffer_frame, unsigned buffer_width, unsigned up_offset) {
     // check how many strides to the left we have to check of every black square
     unsigned const wsArrayDimensions = numFullStridesX + (middleSquareDimensions != 0);
-    unsigned const numFullStridesX_div_2 = numFullStridesX / 2;
+    unsigned const numFullStridesX_div_2 = numFullStridesX >> 1;
     int const middleIndex = middleSquareDimensions != 0 ? numFullStridesX_div_2 : -1;
     // iterate top->bottom, left -> right
     unsigned row_wsArrayDimensions = 0;
@@ -511,7 +511,7 @@ void updateIsWhiteAreaUpOffset(unsigned char *buffer_frame, unsigned buffer_widt
 void updateIsWhiteAreaDownOffset(unsigned char *buffer_frame, unsigned buffer_width, unsigned down_offset) {
     // check how many strides to the left we have to check of every black square
     unsigned const wsArrayDimensions = numFullStridesX + (middleSquareDimensions != 0);
-    unsigned const numFullStridesX_div_2 = numFullStridesX / 2;
+    unsigned const numFullStridesX_div_2 = numFullStridesX >> 1;
     int const middleIndex = middleSquareDimensions != 0 ? numFullStridesX_div_2 : -1;
     // iterate top->bottom, left -> right
     unsigned row_wsArrayDimensions = (wsArrayDimensions - 1) * wsArrayDimensions;
@@ -579,90 +579,107 @@ void updateIsWhiteAreaDownOffset(unsigned char *buffer_frame, unsigned buffer_wi
 void populateIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned height) {
     // printf("Populating IsWhiteArea\n");
     const bool hasMiddleSquare = (middleSquareDimensions != 0);
-    unsigned int boolArrayWidth = numFullStridesX + hasMiddleSquare;
-    unsigned int boolArrayHeight = numFullStridesY + hasMiddleSquare;
+    const unsigned int numFullStridesX_div_2 = numFullStridesX >> 1;
+    const unsigned int numFullStridesY_div_2 = numFullStridesY >> 1;
+    const unsigned int boolArrayWidth = numFullStridesX + hasMiddleSquare;
+    const unsigned int boolArrayHeight = numFullStridesY + hasMiddleSquare;
 
     // 500x500 image = 22 21x21 squares with a 38x38 middle square, 38x21 middle column and 21x38 middle row
     // |11 21-wide squares|38 wide square|11 21-wide squares|
 
     int whiteAreaRow, whiteAreaCol;
+    unsigned row_arrayWidth = 0;
     // upper left corner
-    for (whiteAreaRow = 0; whiteAreaRow < numFullStridesY / 2; ++whiteAreaRow) {
-        for (whiteAreaCol = 0; whiteAreaCol < numFullStridesX / 2; ++whiteAreaCol) {
+    for (whiteAreaRow = 0; whiteAreaRow < numFullStridesY_div_2; ++whiteAreaRow) {
+        for (whiteAreaCol = 0; whiteAreaCol < numFullStridesX_div_2; ++whiteAreaCol) {
             // todo: optimize this
-            isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+            isWhiteArea[row_arrayWidth + whiteAreaCol] =
                 checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStride, isWhiteAreaStride);
             // printf("(%d,%d) is %d\n", whiteAreaCol, whiteAreaRow, isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol]);
         }
+        row_arrayWidth += boolArrayWidth;
     }
 
     // bottom left corner
-    for (whiteAreaRow = numFullStridesY / 2 + hasMiddleSquare; whiteAreaRow < boolArrayHeight; ++whiteAreaRow) {
-        for (whiteAreaCol = 0; whiteAreaCol < numFullStridesX / 2; ++whiteAreaCol) {
+    row_arrayWidth = (numFullStridesY_div_2 + hasMiddleSquare) * boolArrayWidth;
+    for (whiteAreaRow = numFullStridesY_div_2 + hasMiddleSquare; whiteAreaRow < boolArrayHeight; ++whiteAreaRow) {
+        for (whiteAreaCol = 0; whiteAreaCol < numFullStridesX_div_2; ++whiteAreaCol) {
             // todo: optimize this
-            isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+            isWhiteArea[row_arrayWidth + whiteAreaCol] =
                 checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStride, isWhiteAreaStride);
             // printf("(%d,%d) is %d\n", whiteAreaCol, whiteAreaRow, isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol]);
         }
+        row_arrayWidth += boolArrayWidth;
     }
 
     // top right corner
-    for (whiteAreaRow = 0; whiteAreaRow < numFullStridesY / 2; ++whiteAreaRow) {
-        for (whiteAreaCol = numFullStridesX / 2 + hasMiddleSquare; whiteAreaCol < boolArrayWidth; ++whiteAreaCol) {
+    row_arrayWidth = 0;
+    for (whiteAreaRow = 0; whiteAreaRow < numFullStridesY_div_2; ++whiteAreaRow) {
+        for (whiteAreaCol = numFullStridesX_div_2 + hasMiddleSquare; whiteAreaCol < boolArrayWidth; ++whiteAreaCol) {
             // todo: optimize this
-            isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+            isWhiteArea[row_arrayWidth + whiteAreaCol] =
                 checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStride, isWhiteAreaStride);
             // printf("(%d,%d) is %d\n", whiteAreaCol, whiteAreaRow, isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol]);
         }
+        row_arrayWidth += boolArrayWidth;
     }
 
     // bottom right corner
-    for (whiteAreaRow = numFullStridesY / 2 + hasMiddleSquare; whiteAreaRow < boolArrayHeight; ++whiteAreaRow) {
-        for (whiteAreaCol = numFullStridesX / 2 + hasMiddleSquare; whiteAreaCol < boolArrayWidth; ++whiteAreaCol) {
+    row_arrayWidth = (numFullStridesY_div_2 + hasMiddleSquare) * boolArrayWidth;
+    for (whiteAreaRow = numFullStridesY_div_2 + hasMiddleSquare; whiteAreaRow < boolArrayHeight; ++whiteAreaRow) {
+        for (whiteAreaCol = numFullStridesX_div_2 + hasMiddleSquare; whiteAreaCol < boolArrayWidth; ++whiteAreaCol) {
             // todo: optimize this
-            isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+            isWhiteArea[row_arrayWidth + whiteAreaCol] =
                 checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStride, isWhiteAreaStride);
             // printf("(%d,%d) is %d\n", whiteAreaCol, whiteAreaRow, isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol]);
         }
+        row_arrayWidth += boolArrayWidth;
     }
 
     if (hasMiddleSquare) {
         // left middle row
-        whiteAreaRow = numFullStridesY / 2;
-        for (whiteAreaCol = 0; whiteAreaCol < numFullStridesX / 2; ++whiteAreaCol) {
+        whiteAreaRow = numFullStridesY_div_2;
+        row_arrayWidth = whiteAreaRow * boolArrayWidth;
+        for (whiteAreaCol = 0; whiteAreaCol < numFullStridesX_div_2; ++whiteAreaCol) {
             // todo: optimize this
-            isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+            isWhiteArea[row_arrayWidth + whiteAreaCol] =
                 checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStride, middleSquareDimensions);
             // printf("(%d,%d) is %d\n", whiteAreaCol, whiteAreaRow, isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol]);
         }
 
         // right middle row
-        for (whiteAreaCol = numFullStridesX / 2 + 1; whiteAreaCol < boolArrayWidth; ++whiteAreaCol) {
+        for (whiteAreaCol = numFullStridesX_div_2 + 1; whiteAreaCol < boolArrayWidth; ++whiteAreaCol) {
             // todo: optimize this
-            isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+            isWhiteArea[row_arrayWidth + whiteAreaCol] =
                 checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, isWhiteAreaStride, middleSquareDimensions);
             // printf("(%d,%d) is %d\n", whiteAreaCol, whiteAreaRow, isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol]);
         }
 
         // top center row
-        whiteAreaCol = numFullStridesX / 2;
-        for (whiteAreaRow = 0; whiteAreaRow < numFullStridesY / 2; ++whiteAreaRow) {
-            isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+        whiteAreaCol = numFullStridesX_div_2;
+        row_arrayWidth = 0;
+        for (whiteAreaRow = 0; whiteAreaRow < numFullStridesY_div_2; ++whiteAreaRow) {
+            isWhiteArea[row_arrayWidth + whiteAreaCol] =
                 checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, middleSquareDimensions, isWhiteAreaStride);
             // printf("(%d,%d) is %d\n", whiteAreaCol, whiteAreaRow, isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol]);
-        }
-
-        // bottom center row
-        whiteAreaCol = numFullStridesX / 2;
-        for (whiteAreaRow = numFullStridesY / 2 + 1; whiteAreaRow < boolArrayHeight; ++whiteAreaRow) {
-            isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
-                checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, middleSquareDimensions, isWhiteAreaStride);
-            // printf("(%d,%d) is %d\n", whiteAreaCol, whiteAreaRow, isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol]);
+            row_arrayWidth += boolArrayWidth;
         }
 
         // middle square
-        whiteAreaRow = numFullStridesY / 2;
-        isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol] =
+        isWhiteArea[numFullStridesY_div_2 * boolArrayWidth + whiteAreaCol] =
+            checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, middleSquareDimensions, middleSquareDimensions);
+        // bottom center row
+        whiteAreaCol = numFullStridesX_div_2;
+        row_arrayWidth = (numFullStridesY_div_2 + 1) * boolArrayWidth;
+        for (whiteAreaRow = numFullStridesY_div_2 + 1; whiteAreaRow < boolArrayHeight; ++whiteAreaRow) {
+            isWhiteArea[row_arrayWidth + whiteAreaCol] =
+                checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, middleSquareDimensions, isWhiteAreaStride);
+            // printf("(%d,%d) is %d\n", whiteAreaCol, whiteAreaRow, isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol]);
+            row_arrayWidth += boolArrayWidth;
+        }
+
+        // middle square
+        isWhiteArea[numFullStridesY_div_2 * boolArrayWidth + whiteAreaCol] =
             checkWhiteAreaSquare(buffer_frame, width, whiteAreaCol, whiteAreaRow, middleSquareDimensions, middleSquareDimensions);
         // printf("(%d,%d) is %d\n", whiteAreaCol, whiteAreaRow, isWhiteArea[whiteAreaRow * boolArrayWidth + whiteAreaCol]);
     }
@@ -680,9 +697,9 @@ void populateIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned h
 }
 
 void createIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned height) {
-    numFullStridesX = (width / isWhiteAreaStride / 2 * 2); // divide into this many 21x21 pixel squares. Must be an even number
-    numFullStridesY = (height / isWhiteAreaStride / 2 * 2);
-    middleSquareDimensions = width % (isWhiteAreaStride * 2); // remainder of the above square division.
+    numFullStridesX = (((width / isWhiteAreaStride) >> 1) << 1); // divide into this many 21x21 pixel squares. Must be an even number
+    numFullStridesY = (((height / isWhiteAreaStride) >> 1) << 1);
+    middleSquareDimensions = width % (isWhiteAreaStride << 1); // remainder of the above square division.
     // printf("NumFullStridesX %d NumFullStridesY %d middleSquareDimensions %d \n", numFullStridesX, numFullStridesY, middleSquareDimensions);
     isWhiteArea = calloc((numFullStridesX + 1) * (numFullStridesY + 1), sizeof(bool));
     unsigned max_square_width = isWhiteAreaStride < middleSquareDimensions ? middleSquareDimensions : isWhiteAreaStride;
@@ -1194,13 +1211,15 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
     #ifdef USE_ISWHITEAREA
     int const whiteSpaceArrayWidth = numFullStridesX + (middleSquareDimensions != 0);
     int const whiteSpaceArrayHeight = whiteSpaceArrayWidth;
+    int const whiteSpaceArrayHeight_div_2 = whiteSpaceArrayHeight >> 1;
+    int const whiteSpaceArrayWidth_div_2 = whiteSpaceArrayWidth >> 1;
     unsigned tl_px_x, tl_px_y;
     unsigned tr_px_x, tr_px_y;
     unsigned bl_px_x, bl_px_y;
     unsigned br_px_x, br_px_y;
     if (rotate_iteration == 1) {
-        for (int row = 0; row < whiteSpaceArrayHeight / 2; ++row) {
-            for (int col = 0; col < whiteSpaceArrayWidth / 2; ++col) {
+        for (int row = 0; row < whiteSpaceArrayHeight_div_2; ++row) {
+            for (int col = 0; col < whiteSpaceArrayWidth_div_2; ++col) {
                 // printf("Rotating ws array (%d, %d) and its associated squares\n", col, row);
                 int TL_index = row * whiteSpaceArrayWidth + col;
                 int BL_index = (whiteSpaceArrayHeight - 1 - col) * whiteSpaceArrayWidth + row;
@@ -1396,15 +1415,15 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
         }
         if (middleSquareDimensions != 0) {
             // middle columns and rows
-            int col = whiteSpaceArrayWidth / 2;
+            int col = whiteSpaceArrayWidth_div_2;
             unsigned top_px_x, top_px_y;
             unsigned right_px_x, right_px_y;
             unsigned bottom_px_x, bottom_px_y;
             unsigned left_px_x, left_px_y;
-            for (int row = 0; row < whiteSpaceArrayHeight / 2; ++row) {
+            for (int row = 0; row < whiteSpaceArrayHeight_div_2; ++row) {
                 int top_col_index = row * whiteSpaceArrayWidth + col;
-                int left_row_index = (whiteSpaceArrayHeight / 2) * whiteSpaceArrayWidth + row;
-                int right_row_index = (whiteSpaceArrayHeight / 2) * whiteSpaceArrayWidth + (whiteSpaceArrayWidth - row - 1);
+                int left_row_index = (whiteSpaceArrayHeight_div_2) * whiteSpaceArrayWidth + row;
+                int right_row_index = (whiteSpaceArrayHeight_div_2) * whiteSpaceArrayWidth + (whiteSpaceArrayWidth - row - 1);
                 int bottom_col_index = (whiteSpaceArrayHeight - 1 - row) * whiteSpaceArrayWidth + col;
                 int condition_hash = (!isWhiteArea[top_col_index] << 3) +
                                      (!isWhiteArea[right_row_index] << 2) +
@@ -1599,16 +1618,16 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                 ++left_row_index; // right one column
 
             }
-            if (!isWhiteArea[whiteSpaceArrayWidth * (whiteSpaceArrayHeight / 2) + (whiteSpaceArrayWidth / 2)]) {
-                translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth / 2, whiteSpaceArrayHeight / 2, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y); // reusing tl_px_* for middle square
+            if (!isWhiteArea[whiteSpaceArrayWidth * (whiteSpaceArrayHeight_div_2) + (whiteSpaceArrayWidth_div_2)]) {
+                translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth_div_2, whiteSpaceArrayHeight_div_2, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y); // reusing tl_px_* for middle square
                 moveRectToTemp(buffer_frame, temp_square, width, tl_px_x, tl_px_y, middleSquareDimensions, middleSquareDimensions);
                 moveTempToBufferRotate90CW(buffer_frame, temp_square, width, tl_px_x, tl_px_y, middleSquareDimensions, middleSquareDimensions);
             }
             // no whitespace array update required
         }
     } else { // CCW/CW 180 deg
-        for (int row = 0; row < whiteSpaceArrayHeight / 2; ++row) {
-            for (int col = 0; col < whiteSpaceArrayWidth / 2; ++col) {
+        for (int row = 0; row < whiteSpaceArrayHeight_div_2; ++row) {
+            for (int col = 0; col < whiteSpaceArrayWidth_div_2; ++col) {
                 // printf("Rotating ws array (%d, %d) and its associated squares\n", col, row);
                 int TL_index = row * whiteSpaceArrayWidth + col;
                 int BL_index = (whiteSpaceArrayHeight - 1 - col) * whiteSpaceArrayWidth + row;
@@ -1820,15 +1839,15 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
         }
         if (middleSquareDimensions != 0) {
             // middle columns and rows
-            int col = whiteSpaceArrayWidth / 2;
+            int col = whiteSpaceArrayWidth_div_2;
             unsigned top_px_x, top_px_y;
             unsigned right_px_x, right_px_y;
             unsigned bottom_px_x, bottom_px_y;
             unsigned left_px_x, left_px_y;
-            for (int row = 0; row < whiteSpaceArrayHeight / 2; ++row) {
+            for (int row = 0; row < whiteSpaceArrayHeight_div_2; ++row) {
                 int top_col_index = row * whiteSpaceArrayWidth + col;
-                int left_row_index = (whiteSpaceArrayHeight / 2) * whiteSpaceArrayWidth + row;
-                int right_row_index = (whiteSpaceArrayHeight / 2) * whiteSpaceArrayWidth + (whiteSpaceArrayWidth - row - 1);
+                int left_row_index = (whiteSpaceArrayHeight_div_2) * whiteSpaceArrayWidth + row;
+                int right_row_index = (whiteSpaceArrayHeight_div_2) * whiteSpaceArrayWidth + (whiteSpaceArrayWidth - row - 1);
                 int bottom_col_index = (whiteSpaceArrayHeight - 1 - row) * whiteSpaceArrayWidth + col;
                 int condition_hash = (!isWhiteArea[top_col_index] << 3) +
                                      (!isWhiteArea[right_row_index] << 2) +
@@ -2019,8 +2038,8 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
                 ++left_row_index; // right one column
 
             }
-            if (!isWhiteArea[whiteSpaceArrayWidth * (whiteSpaceArrayHeight / 2) + (whiteSpaceArrayWidth / 2)]) {
-                translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth / 2, whiteSpaceArrayHeight / 2, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y); // reusing tl_px_* for middle square
+            if (!isWhiteArea[whiteSpaceArrayWidth * (whiteSpaceArrayHeight_div_2) + (whiteSpaceArrayWidth_div_2)]) {
+                translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth_div_2, whiteSpaceArrayHeight_div_2, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y); // reusing tl_px_* for middle square
                 moveRectToTemp(buffer_frame, temp_square, width, tl_px_x, tl_px_y, middleSquareDimensions, middleSquareDimensions);
                 moveTempToBufferRotate180(buffer_frame, temp_square, width, tl_px_x, tl_px_y, middleSquareDimensions, middleSquareDimensions);
             }
@@ -2047,12 +2066,14 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
     // our condenser limits this to be a 90 deg CCW rotation
     int const whiteSpaceArrayWidth = numFullStridesX + (middleSquareDimensions != 0);
     int const whiteSpaceArrayHeight = whiteSpaceArrayWidth;
+    int const whiteSpaceArrayHeight_div_2 = (whiteSpaceArrayHeight >> 1);
+    int const whiteSpaceArrayWidth_div_2 = (whiteSpaceArrayWidth >> 1);
     unsigned tl_px_x, tl_px_y;
     unsigned tr_px_x, tr_px_y;
     unsigned bl_px_x, bl_px_y;
     unsigned br_px_x, br_px_y;
-    for (int row = 0; row < whiteSpaceArrayHeight / 2; ++row) {
-        for (int col = 0; col < whiteSpaceArrayWidth / 2; ++col) {
+    for (int row = 0; row < whiteSpaceArrayHeight_div_2; ++row) {
+        for (int col = 0; col < whiteSpaceArrayWidth_div_2; ++col) {
             // printf("Rotating ws array (%d, %d) and its associated squares\n", col, row);
             int TL_index = row * whiteSpaceArrayWidth + col;
             int BL_index = (whiteSpaceArrayHeight - 1 - col) * whiteSpaceArrayWidth + row;
@@ -2249,15 +2270,15 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
     if (middleSquareDimensions != 0) {
         // middle columns and rows
         // printf("processing middle cols and rows\n");
-        int col = whiteSpaceArrayWidth / 2;
+        int col = whiteSpaceArrayWidth_div_2;
         unsigned top_px_x, top_px_y;
         unsigned right_px_x, right_px_y;
         unsigned bottom_px_x, bottom_px_y;
         unsigned left_px_x, left_px_y;
-        for (int row = 0; row < whiteSpaceArrayHeight / 2; ++row) {
+        for (int row = 0; row < whiteSpaceArrayHeight_div_2; ++row) {
             int top_col_index = row * whiteSpaceArrayWidth + col;
-            int left_row_index = (whiteSpaceArrayHeight / 2) * whiteSpaceArrayWidth + row;
-            int right_row_index = (whiteSpaceArrayHeight / 2) * whiteSpaceArrayWidth + (whiteSpaceArrayWidth - row - 1);
+            int left_row_index = (whiteSpaceArrayHeight_div_2) * whiteSpaceArrayWidth + row;
+            int right_row_index = (whiteSpaceArrayHeight_div_2) * whiteSpaceArrayWidth + (whiteSpaceArrayWidth - row - 1);
             int bottom_col_index = (whiteSpaceArrayHeight - 1 - row) * whiteSpaceArrayWidth + col;
             int condition_hash = (!isWhiteArea[top_col_index] << 3) +
                                     (!isWhiteArea[right_row_index] << 2) +
@@ -2452,8 +2473,8 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
             ++left_row_index; // right one column
 
         }
-        if (!isWhiteArea[whiteSpaceArrayWidth * (whiteSpaceArrayHeight / 2) + (whiteSpaceArrayWidth / 2)]) {
-            translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth / 2, whiteSpaceArrayHeight / 2, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y); // reusing tl_px_* for middle square
+        if (!isWhiteArea[whiteSpaceArrayWidth * (whiteSpaceArrayHeight_div_2) + (whiteSpaceArrayWidth_div_2)]) {
+            translateWhiteSpaceArrayIndicesToPixel(whiteSpaceArrayWidth_div_2, whiteSpaceArrayHeight_div_2, whiteSpaceArrayWidth, &tl_px_x, &tl_px_y); // reusing tl_px_* for middle square
             moveRectToTemp(buffer_frame, temp_square, width, tl_px_x, tl_px_y, middleSquareDimensions, middleSquareDimensions);
             moveTempToBufferRotate90CCW(buffer_frame, temp_square, width, tl_px_x, tl_px_y, middleSquareDimensions, middleSquareDimensions);
         }
@@ -2481,8 +2502,8 @@ unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, u
     #else
     int const whiteSpaceArrayWidth = numFullStridesX + (middleSquareDimensions != 0);
     int const whiteSpaceArrayHeight = whiteSpaceArrayWidth; // TODO we know its always square, we can remove this and just use Width
-    int const numFullStridesY_div_2 = numFullStridesY / 2;
-    int const numFullStridesX_div_2 = numFullStridesX / 2;
+    int const numFullStridesY_div_2 = numFullStridesY >> 1;
+    int const numFullStridesX_div_2 = numFullStridesX >> 1;
 
     int ws_row, ws_col;
 
@@ -2574,7 +2595,7 @@ unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, u
         bottom_px_y = top_px_y + middleSquareDimensions - 1;
         px_x = 0;
         ws_top_index = numFullStridesY_div_2 * whiteSpaceArrayWidth;
-        unsigned middleColHeight_div_2 = middleSquareDimensions / 2;
+        unsigned middleColHeight_div_2 = middleSquareDimensions >> 1;
         for (ws_col = 0; ws_col < numFullStridesX_div_2; ++ws_col) {
             if (!isWhiteArea[ws_top_index]){
                 swapAndMirrorXSubsquares(buffer_frame, width, px_x, top_px_y, px_x, bottom_px_y, isWhiteAreaStride, middleColHeight_div_2);
