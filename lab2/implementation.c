@@ -334,17 +334,21 @@ void updateIsWhiteAreaLeftOffset(unsigned char *buffer_frame, unsigned buffer_wi
             dst_px_x = orig_px_x - left_offset;
             if (dst_px_x >= 0) {
                 translatePixelToWhiteSpaceArrayIndices(dst_px_x, orig_px_y, buffer_width, &dst_ws_col, &dst_ws_row);
-                dim_width = dst_ws_col == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
-                dim_height = dst_ws_row == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
                 dst_row_wsDimensions = dst_ws_row * wsArrayDimensions;
-                isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                if (isWhiteArea[dst_row_wsDimensions + dst_ws_col]) {
+                    dim_width = dst_ws_col == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                    dim_height = dst_ws_row == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                    isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                }
                 // num_checked++;
                 // don't have to check col again or to the right of col
                 ++dst_ws_col;
                 if (dst_ws_col < col) {
-                    dim_width = dst_ws_col == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
-                    // height is the same
-                    isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                    if (isWhiteArea[dst_row_wsDimensions + dst_ws_col]) {
+                        dim_width = dst_ws_col == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                        // height is the same
+                        isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                    }
                     // num_checked++;
                 }
             } // TODO this wont handle objects being moved "almost" off the screen with a large offset
@@ -394,18 +398,22 @@ void updateIsWhiteAreaRightOffset(unsigned char *buffer_frame, unsigned buffer_w
             dst_px_x = orig_px_x + right_offset + dim_width - 1;
             if (dst_px_x < buffer_width) {
                 translatePixelToWhiteSpaceArrayIndices(dst_px_x, orig_px_y, buffer_width, &dst_ws_col, &dst_ws_row);
-                dim_width = dst_ws_col == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
-                dim_height = dst_ws_row == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
                 dst_row_wsDimensions = dst_ws_row * wsArrayDimensions;
-                isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                if (isWhiteArea[dst_ws_col + dst_row_wsDimensions]) {
+                    dim_width = dst_ws_col == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                    dim_height = dst_ws_row == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                    isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                }
                 // printf("Moved (%d, %d) offset %d. Therefore checking (%d, %d) - 2\n", col, row, right_offset, dst_ws_col, dst_ws_row);
                 // num_checked++;
                 // don't have to check col again or to the left of col
                 --dst_ws_col;
                 if (dst_ws_col > col) {
-                    dim_width = dst_ws_col == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
                     // height is the same
-                    isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                    if (isWhiteArea[dst_ws_col + dst_row_wsDimensions]) {
+                        dim_width = dst_ws_col == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                        isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                    }
                     // printf("Moved (%d, %d) offset %d. Therefore checking (%d, %d) - 3\n", col, row, right_offset, dst_ws_col, dst_ws_row);
                     // num_checked++;
                 }
@@ -459,20 +467,24 @@ void updateIsWhiteAreaUpOffset(unsigned char *buffer_frame, unsigned buffer_widt
             dst_px_y = orig_px_y - up_offset;
             if (dst_px_y >= 0) {
                 translatePixelToWhiteSpaceArrayIndices(orig_px_x, dst_px_y, buffer_width, &dst_ws_col, &dst_ws_row);
-                dim_width = dst_ws_col == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
-                dim_height = dst_ws_row == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
                 dst_row_wsDimensions = dst_ws_row * wsArrayDimensions;
                 // printf("Moved (%d, %d) offset %d. Therefore checking (%d, %d) - 2\n", col, row, up_offset, dst_ws_col, dst_ws_row);
-                isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                if (isWhiteArea[dst_row_wsDimensions + dst_ws_col]) {
+                    dim_width = dst_ws_col == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                    dim_height = dst_ws_row == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                    isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                }
                 // num_checked++;
                 // don't have to check row again or below row
                 ++dst_ws_row;
                 dst_row_wsDimensions += wsArrayDimensions;
                 if (dst_ws_row < row) {
-                    dim_height = dst_ws_row == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
                     // width is the same
                     // printf("Moved (%d, %d) offset %d. Therefore checking (%d, %d) - 3\n", col, row, up_offset, dst_ws_col, dst_ws_row);
-                    isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                    if (isWhiteArea[dst_row_wsDimensions + dst_ws_col]) {
+                        dim_height = dst_ws_row == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                        isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                    }
                     // num_checked++;
                 }
             } // TODO this wont handle objects being moved "almost" off the screen with a large offset
@@ -524,20 +536,24 @@ void updateIsWhiteAreaDownOffset(unsigned char *buffer_frame, unsigned buffer_wi
             dst_px_y = orig_px_y + dim_height - 1 + down_offset;
             if (dst_px_y <= buffer_width) {
                 translatePixelToWhiteSpaceArrayIndices(orig_px_x, dst_px_y, buffer_width, &dst_ws_col, &dst_ws_row);
-                dim_width = dst_ws_col == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
-                dim_height = dst_ws_row == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
                 dst_row_wsDimensions = dst_ws_row * wsArrayDimensions;
                 // printf("Moved (%d, %d) offset %d. Therefore checking (%d, %d) - 2\n", col, row, up_offset, dst_ws_col, dst_ws_row);
-                isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                if (isWhiteArea[dst_row_wsDimensions + dst_ws_col]) {
+                    dim_width = dst_ws_col == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                    dim_height = dst_ws_row == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                    isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                }
                 // num_checked++;
                 // don't have to check row again or above row
                 --dst_ws_row;
                 dst_row_wsDimensions += wsArrayDimensions;
                 if (dst_ws_row > row) {
-                    dim_height = dst_ws_row == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
                     // width is the same
                     // printf("Moved (%d, %d) offset %d. Therefore checking (%d, %d) - 3\n", col, row, up_offset, dst_ws_col, dst_ws_row);
-                    isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                    if (isWhiteArea[dst_row_wsDimensions + dst_ws_col]) {
+                        dim_height = dst_ws_row == middleIndex ? middleSquareDimensions : isWhiteAreaStride;
+                        isWhiteArea[dst_ws_col + dst_row_wsDimensions] = checkWhiteAreaSquare(buffer_frame, buffer_width, dst_ws_col, dst_ws_row, dim_width, dim_height);
+                    }
                     // num_checked++;
                 }
             } // TODO this wont handle objects being moved "almost" off the screen with a large offset
