@@ -697,8 +697,8 @@ void populateIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned h
 }
 
 void createIsWhiteArea(unsigned char *buffer_frame, unsigned width, unsigned height) {
-    numFullStridesX = (((width / isWhiteAreaStride) >> 1) << 1); // divide into this many 21x21 pixel squares. Must be an even number
-    numFullStridesY = (((height / isWhiteAreaStride) >> 1) << 1);
+    numFullStridesX = (width / isWhiteAreaStride) & ~1; // divide into this many 21x21 pixel squares. Must be an even number
+    numFullStridesY = (height / isWhiteAreaStride) & ~1;
     middleSquareDimensions = width % (isWhiteAreaStride << 1); // remainder of the above square division.
     // printf("NumFullStridesX %d NumFullStridesY %d middleSquareDimensions %d \n", numFullStridesX, numFullStridesY, middleSquareDimensions);
     isWhiteArea = calloc((numFullStridesX + 1) * (numFullStridesY + 1), sizeof(bool));
