@@ -2642,8 +2642,154 @@ unsigned char *processMirrorY(unsigned char *buffer_frame, unsigned width, unsig
         // TODO: once everything is done in-place, wont need this return anymore
         return buffer_frame;
         #else
-        swapAndMirrorYSubsquares(buffer_frame, width, 0, 0, width-1, 0, width/2, height);
-        populateIsWhiteArea(buffer_frame, width, height);
+        bool const hasMiddleSquare = (middleSquareDimensions != 0);
+        int const whiteSpaceArrayWidth = numFullStridesX + hasMiddleSquare;
+        int const whiteSpaceArrayHeight = whiteSpaceArrayWidth; // TODO we know its always square, we can remove this and just use Width
+        int const numFullStridesY_div_2 = (numFullStridesY >> 1);
+        int const numFullStridesX_div_2 = (numFullStridesX >> 1);
+        /*
+        printf("\n\nWhiteSpaceArray (%d x %d), middle square is %d x %d:\n", whiteSpaceArrayWidth, whiteSpaceArrayHeight, middleSquareDimensions, middleSquareDimensions);
+        for (int row = 0; row < whiteSpaceArrayHeight; row++) {
+            for (int col = 0; col < whiteSpaceArrayWidth; col++) {
+                printf("%d", isWhiteArea[row * whiteSpaceArrayWidth + col]);
+            }
+            printf("\n");
+        }
+        */
+
+        int row, col;
+        bool temp_bool;
+
+        int ws_left_index = 0;
+        int ws_right_index = whiteSpaceArrayWidth - 1;
+        int ws_row_offset = 0;
+
+        int px_y = 0; // same for both
+        int left_px_x = 0; // top left of left square
+        int right_px_x = width - 1; // top right of right square
+        // top left and right quadrants
+        for (row = 0; row < numFullStridesY_div_2; ++row) {
+            for (col = 0; col < numFullStridesX_div_2; ++col) {
+                if (!isWhiteArea[ws_left_index] || !isWhiteArea[ws_right_index]) {
+                    // printf("1 - ");
+                    swapAndMirrorYSubsquares(buffer_frame, width, left_px_x, px_y, right_px_x, px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    temp_bool = isWhiteArea[ws_left_index];
+                    isWhiteArea[ws_left_index] = isWhiteArea[ws_right_index];
+                    isWhiteArea[ws_right_index] = temp_bool;
+                }
+                // printf("%d <> %d\n", left_px_x, right_px_x);
+                ++ws_left_index;
+                --ws_right_index;
+                left_px_x += isWhiteAreaStride;
+                right_px_x -= isWhiteAreaStride;
+            }
+            ws_row_offset += whiteSpaceArrayWidth;
+            px_y += isWhiteAreaStride;
+            left_px_x = 0;
+            right_px_x = width - 1;
+            ws_left_index = ws_row_offset;
+            ws_right_index = ws_row_offset + whiteSpaceArrayWidth - 1;
+        }
+        /*
+        printf("\n\nWhiteSpaceArray (%d x %d), middle square is %d x %d:\n", whiteSpaceArrayWidth, whiteSpaceArrayHeight, middleSquareDimensions, middleSquareDimensions);
+        for (int row = 0; row < whiteSpaceArrayHeight; row++) {
+            for (int col = 0; col < whiteSpaceArrayWidth; col++) {
+                printf("%d", isWhiteArea[row * whiteSpaceArrayWidth + col]);
+            }
+            printf("\n");
+        }
+        */
+        // bottom left and right quadrants
+        ws_row_offset = (numFullStridesY_div_2 + hasMiddleSquare) * whiteSpaceArrayWidth;
+        ws_left_index = ws_row_offset;
+        ws_right_index = ws_left_index + whiteSpaceArrayWidth - 1;
+        left_px_x = 0;
+        right_px_x = width - 1;
+        px_y += middleSquareDimensions;
+        for (row = 0; row < numFullStridesY_div_2; ++row) {
+            for (col = 0; col < numFullStridesX_div_2; ++col) {
+                if (!isWhiteArea[ws_left_index] || !isWhiteArea[ws_right_index]) {
+                    // printf("2 - ");
+                    swapAndMirrorYSubsquares(buffer_frame, width, left_px_x, px_y, right_px_x, px_y, isWhiteAreaStride, isWhiteAreaStride);
+                    temp_bool = isWhiteArea[ws_left_index];
+                    isWhiteArea[ws_left_index] = isWhiteArea[ws_right_index];
+                    isWhiteArea[ws_right_index] = temp_bool;
+                }
+                ++ws_left_index;
+                --ws_right_index;
+                left_px_x += isWhiteAreaStride;
+                right_px_x -= isWhiteAreaStride;
+            }
+            left_px_x = 0;
+            right_px_x = width - 1;
+            ws_row_offset += whiteSpaceArrayWidth;
+            px_y += isWhiteAreaStride;
+            ws_left_index = ws_row_offset;
+            ws_right_index = ws_row_offset + whiteSpaceArrayWidth - 1;
+        }
+
+        if (hasMiddleSquare) {
+            // upper middle column special case
+            col = numFullStridesX_div_2;
+            px_y = 0;
+            left_px_x = numFullStridesX_div_2 * isWhiteAreaStride;
+            right_px_x = left_px_x + middleSquareDimensions - 1;
+            ws_left_index = numFullStridesX_div_2; // using left as defacto center index
+            for (row = 0; row < numFullStridesY_div_2; ++row) {
+                if (!isWhiteArea[ws_left_index]) {
+                    // printf("3 - ");
+                    swapAndMirrorYSubsquares(buffer_frame, width, left_px_x, px_y, right_px_x, px_y, middleSquareDimensions >> 1, isWhiteAreaStride);
+                }
+                px_y += isWhiteAreaStride;
+                ws_left_index += whiteSpaceArrayWidth;
+            }
+            // middle square
+            if (!isWhiteArea[ws_left_index]) {
+                // printf("4 - ");
+                swapAndMirrorYSubsquares(buffer_frame, width, left_px_x, px_y, right_px_x, px_y, middleSquareDimensions >> 1, middleSquareDimensions);
+            }
+            px_y += middleSquareDimensions;
+            ws_left_index += whiteSpaceArrayWidth;
+            // lower middle column special case
+            for (row = 0; row < numFullStridesY_div_2; ++row) {
+                if (!isWhiteArea[ws_left_index]) {
+                    // printf("5 - ");
+                    swapAndMirrorYSubsquares(buffer_frame, width, left_px_x, px_y, right_px_x, px_y, middleSquareDimensions >> 1, isWhiteAreaStride);
+                }
+                px_y += isWhiteAreaStride;
+                ws_left_index += whiteSpaceArrayWidth;
+            }
+
+            // middle row special case
+            px_y = numFullStridesX_div_2 * isWhiteAreaStride;
+            left_px_x = 0;
+            right_px_x = width - 1;
+            ws_left_index = numFullStridesX_div_2 * whiteSpaceArrayWidth;
+            ws_right_index = ws_left_index + whiteSpaceArrayWidth - 1;
+            for (col = 0; col < numFullStridesY_div_2; ++col) {
+                if (!isWhiteArea[ws_left_index] || !isWhiteArea[ws_right_index]) {
+                    // printf("6 - ");
+                    swapAndMirrorYSubsquares(buffer_frame, width, left_px_x, px_y, right_px_x, px_y, isWhiteAreaStride, middleSquareDimensions);
+                    temp_bool = isWhiteArea[ws_left_index];
+                    isWhiteArea[ws_left_index] = isWhiteArea[ws_right_index];
+                    isWhiteArea[ws_right_index] = temp_bool;
+                }
+                left_px_x += isWhiteAreaStride;
+                right_px_x -= isWhiteAreaStride;
+                ++ws_left_index;
+                --ws_right_index;
+            }
+        }
+        /*
+        printf("\n\nWhiteSpaceArray (%d x %d), middle square is %d x %d:\n", whiteSpaceArrayWidth, whiteSpaceArrayHeight, middleSquareDimensions, middleSquareDimensions);
+        for (int row = 0; row < whiteSpaceArrayHeight; row++) {
+            for (int col = 0; col < whiteSpaceArrayWidth; col++) {
+                printf("%d", isWhiteArea[row * whiteSpaceArrayWidth + col]);
+            }
+            printf("\n");
+        }
+        */
+        
         return buffer_frame;
         #endif
     #endif
