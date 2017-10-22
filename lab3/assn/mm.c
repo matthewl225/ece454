@@ -24,15 +24,15 @@
  ********************************************************/
 team_t team = {
     /* Team name */
-    "",
+    "DownloadMoreRam.com",
     /* First member's full name */
-    "",
+    "Connor Smith",
     /* First member's email address */
-    "",
+    "connor.smith@mail.utoronto.ca",
     /* Second member's full name (leave blank if none) */
-    "",
+    "Fan Guo",
     /* Second member's email address (leave blank if none) */
-    ""
+    "cfan.guo@mail.utoronto.ca"
 };
 
 /*************************************************************************
@@ -71,18 +71,19 @@ void* heap_listp = NULL;
  * Initialize the heap, including "allocation" of the
  * prologue and epilogue
  **********************************************************/
- int mm_init(void)
- {
-   if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
-         return -1;
-     PUT(heap_listp, 0);                         // alignment padding
-     PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));   // prologue header
-     PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));   // prologue footer
-     PUT(heap_listp + (3 * WSIZE), PACK(0, 1));    // epilogue header
-     heap_listp += DSIZE;
+int mm_init(void)
+{
+    if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1) {
+        return -1;
+    }
+    PUT(heap_listp, 0);                         // alignment padding
+    PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));   // prologue header
+    PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));   // prologue footer
+    PUT(heap_listp + (3 * WSIZE), PACK(0, 1));    // epilogue header
+    heap_listp += DSIZE;
 
-     return 0;
- }
+    return 0;
+}
 
 /**********************************************************
  * coalesce
@@ -159,6 +160,7 @@ void *extend_heap(size_t words)
  **********************************************************/
 void * find_fit(size_t asize)
 {
+    /** Original Implementation, TODO: delete?
     void *bp;
     for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
     {
@@ -168,6 +170,8 @@ void * find_fit(size_t asize)
         }
     }
     return NULL;
+    */
+
 }
 
 /**********************************************************
@@ -176,6 +180,7 @@ void * find_fit(size_t asize)
  **********************************************************/
 void place(void* bp, size_t asize)
 {
+// TODO probably not needed anymore
   /* Get the current block size */
   size_t bsize = GET_SIZE(HDRP(bp));
 
@@ -189,6 +194,8 @@ void place(void* bp, size_t asize)
  **********************************************************/
 void mm_free(void *bp)
 {
+    // TODO: set the free bit and coalesce
+    // will have to place block into either wilderness or free list
     if(bp == NULL){
       return;
     }
@@ -209,6 +216,33 @@ void mm_free(void *bp)
  **********************************************************/
 void *mm_malloc(size_t size)
 {
+    // 1. asize = 16byte_round(size). find free list index for asize. better_fit_size = (1<<(list_index-1) | 1<<(list_index-2))
+    // 2. if better_fit_size >= size
+    //    2a. Check the "wilderness" area for a size bigger than better_fit_size. Wilderness should try to be sorted or in some kind of BST
+    //    2b. if found, return that pointer and subtract from the wilderness block size. If it's a power of 2, add the remaining size to a regular index, otherwise put back in Wilderness
+    //    2c. if not found, sbrk a better_fit_size block and return that.
+    // 3. if better_fit_size < size
+    //    3a. check the free list index to see if a block is there. If yes, return that block and remove from free list
+    //    3b. if no, check the wilderness and split a block from there if possible.
+    //    3c. if nothing in wilderness will work, sbrk a block size corresponding to this index and return that
+    //
+    // Note: For sbrk, check a global pointer for the block at the very end of the heap. sbrk enough such that this block can fulfill the request
+
+
+    /** Fragmentation Analysis
+     * 
+     * Worst case is allocating 2^n+1 sizes. (e.g. 33 bytes, 65 bytes, 129 bytes)
+     * in this case, we'd use a better_fit_size block of 2^n + 2^(n-1) rather than 2^(n+1) = 2*2^n blocks.
+     * Fragmentation = (16 + 2^n + 2^(n-1) - 2^n - 1)/(2^n + 2^(n-1)) = (2^(n-1) + 15)/(3*2^(n-1)) which is 48% fragmentation for 33 bytes, and tends towards 33% as size increases
+     * If we didn't use better_fit_size blocks, we'd have Fragmentation = (16 + 2^n - 1)/(2*2^n) which is 58% fragmentation for 33 bytes, and tends towards 50% as size increases
+     * Therefore, we will keep our fragmentation below 33% for reasonable malloc/free use-cases
+     */
+
+    // Note: rounding to 16 byte alignment means that the caret addresses are 16 byte aligned
+    // [prev size (8 bytes) and a free bit][my size (8 bytes) and a free bit][data           ]|[prev size(8 bytes) and a free bit][my size(8 bytes) and a free bit][data          ]
+    // ^                                      ^                 ^                                     ^
+    // note: data length will be in multiples of 16 bytes
+
     size_t asize; /* adjusted block size */
     size_t extendsize; /* amount to extend heap if no fit */
     char * bp;
@@ -244,6 +278,15 @@ void *mm_malloc(size_t size)
  *********************************************************/
 void *mm_realloc(void *ptr, size_t size)
 {
+    // if size == 0, free
+    // if ptr == null, malloc
+    // If my current max size is > new size, do nothing
+    // if new size is within the next power of 2 down, split into a new free block (shrink this allocated block)
+    // if new size is bigger than my current max
+    //    look to the right. If free and big enough to accommodate expansion: expand into that block, increase my size just enough and reconfigure the free block to reflect my new size
+    //    look to the left. If free and big enough to accommodate expansion: memmove into that block and split the current block such that its just large enough to contain the new size
+    // if new size cannot be accommodated above, malloc a new block and free this block
+
     /* If size == 0 then this is just free, and we return NULL. */
     if(size == 0){
       mm_free(ptr);
@@ -276,5 +319,9 @@ void *mm_realloc(void *ptr, size_t size)
  * Return nonzero if the heap is consistant.
  *********************************************************/
 int mm_check(void){
+    // Probably something like iterating over all blocks and ensuring that:
+    // 1. If I'm marked free, there are no free blocks beside me (fully coalesced)
+    // 2. if I'm marked free, I'm in the proper free list/wilderness
+    // 3. if I'm marked allocated, the blocks to my left and right also say i'm allocated
   return 1;
 }
