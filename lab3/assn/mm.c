@@ -213,6 +213,74 @@ void place(void* bp, size_t asize)
   PUT(FTRP(bp), PACK(bsize, 1));
 }
 
+
+// smallest block size is a DWORD of data and a DWORD of header/footer
+// we don't need the footer for this
+typedef struct linked_list {
+    size_t size_alloc;
+    struct linked_list *next;
+} linked_list_t;
+
+/**********************************************************
+ * sorted_list_insert
+ * insert the given block into the given list at the correct position
+ **********************************************************/
+void *sorted_list_insert(void *free_list, void *bp, size_t size) {
+    linked_list_t *ll_bp = (linked_list_t*)HDRP(bp);
+    // insert at the front if list is empty
+    if (free_list == NULL) {
+        ll_bp->next = NULL;
+        return ll_bp;
+    }
+
+    linked_list_t *current = (linked_list_t *)free_list;
+    linked_list_t *prev = NULL;
+    // look for two nodes where prev->size < size < next->size
+    // In the case of size ties, we should insert in address order with lowest address first
+    while (current != NULL && (current->size_alloc < size || (current->size_alloc == size && current < ll_bp))) {
+        prev = current;
+        current = current->next;
+    }
+    prev->next = ll_bp;
+    ll_bp->next = current;
+    return free_list;
+}
+
+void *sorted_list_remove(void *free_list, void *bp) {
+
+    linked_list_t *current = (linked_list_t *)free_list;
+    linked_list_t *prev = NULL;
+    // remove from front of list
+    if (current == bp) {
+        return current->next;
+    }
+
+    // search for bp in the list
+    while (current != bp) {
+        prev = current;
+        current = current->next;
+    }
+    // remove it by setting the previous node to point to the next node, skipping current
+    prev->next = current->next;
+    return free_list;
+}
+
+/**********************************************************
+ * insert_into_free_list
+ * given a free'd block pointer, insert it into its appropriate free list at the correct position
+ **********************************************************/
+void insert_into_free_list(void *bp) {
+    if (bp == mem_heap_lo()) {
+        // the last block never goes into a free list
+        return;
+    }
+
+    size_t size = GET_SIZE(HDRP(bp));
+    size_t list_index = get_list_index(size);
+    free_list[list_index] = sorted_list_insert(free_list[list_index], bp, size);
+}
+
+
 /**********************************************************
  * mm_free
  * Free the block and coalesce with neighbouring blocks
