@@ -183,36 +183,16 @@ void *extend_heap(size_t words)
  * Return NULL if no free blocks can handle that size
  * Assumed that asize is aligned
  **********************************************************/
-void * find_fit(size_t asize)
+void * find_fit(void *free_list, size_t asize)
 {
-    /** Original Implementation, TODO: delete?
-    void *bp;
-    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
-    {
-        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp))))
-        {
-            return bp;
-        }
+    // the free list is sorted by size then by memory address, therefore the first block that fits at least asize is the best fit
+    linked_list_t *curr = (linked_list_t *)free_list;
+    while (curr != NULL && curr->size_alloc < asize) {
+        curr = curr->next;
     }
-    return NULL;
-    */
-
+    // returns null if not found / free_list empty
+    return curr;
 }
-
-/**********************************************************
- * place
- * Mark the block as allocated
- **********************************************************/
-void place(void* bp, size_t asize)
-{
-// TODO probably not needed anymore
-  /* Get the current block size */
-  size_t bsize = GET_SIZE(HDRP(bp));
-
-  PUT(HDRP(bp), PACK(bsize, 1));
-  PUT(FTRP(bp), PACK(bsize, 1));
-}
-
 
 // smallest block size is a DWORD of data and a DWORD of header/footer
 // we don't need the footer for this
