@@ -104,32 +104,49 @@ void *coalesce(void *bp)
     size_t prev_alloc = GET_ALLOC(FTRP(prev_blkp));
     size_t next_alloc = GET_ALLOC(HDRP(next_blkp));
     size_t size = GET_SIZE(HDRP(bp));
+    size_t temp_size, list_index;
+
 
     if (prev_alloc && next_alloc) {       /* Case 1 */
         return bp;
     }
 
     else if (prev_alloc && !next_alloc) { /* Case 2 */
-        size += GET_SIZE(HDRP(next_blkp));
+        // remove next_blkp from free list
+        temp_size = GET_SIZE(HDRP(next_blkp));
+        list_index = get_list_index(temp_size);
+        free_list[list_index] = sorted_list_remove(free_list[list_index], HDRP(next_blkp));
+
+        size += temp_size + OVERHEAD_2;
         PUT(HDRP(bp), PACK(size, 0));
         PUT(FTRP(bp), PACK(size, 0));
+        list_index = get_list_index(size);
+        free_list[list_index] = sorted_list_insert(free_list[list_index], bp, size);
         return (bp);
     }
 
     else if (!prev_alloc && next_alloc) { /* Case 3 */
+        // remove prev_blkp from free list
+        temp_size = GET_SIZE(HDRP(prev_blkp));
+        list_index = get_list_index(temp_size);
+        free_list[list_index] = sorted_list_remove(free_list[list_index], HDRP(prev_blkp));
+
         // two blocks need 4 tags, 1 block needs 2 tags therefore add 2 tags when coalescing
-        size += GET_SIZE(HDRP(prev_blkp)) + OVERHEAD_2;
+        size += temp_size + OVERHEAD_2;
         PUT(FTRP(bp), PACK(size, 0));
         PUT(HDRP(prev_blkp), PACK(size, 0));
+        list_index = get_list_index(size);
+        free_list[list_index] = sorted_list_insert(free_list[list_index], prev_blkp, size);
         return (prev_blkp);
     }
 
     else {            /* Case 4 */
         // 3 blocks need 6 tags, 1 block need 2 tags therefore add 4 tags to the block size
         size += GET_SIZE(HDRP(prev_blkp))  +
-            GET_SIZE(FTRP(next_blkp))  + OVERHEAD_4;
+            GET_SIZE(FTRP(next_blkp)) + OVERHEAD_4;
         PUT(HDRP(prev_blkp), PACK(size,0));
         PUT(FTRP(prev_blkp), PACK(size,0));
+        // TODO: remove next_blkp from free list
         return (prev_blkp);
     }
 }
