@@ -40,6 +40,9 @@ team_t team = {
  * You are not required to use these macros but may find them helpful.
 *************************************************************************/
 #define WSIZE       sizeof(void *)            /* word size (bytes) */
+#define OVERHEAD    WSIZE
+#define OVERHEAD_4  OVERHEAD * 4;
+#define OVERHEAD_2  OVERHEAD * 2
 #define DSIZE       (2 * WSIZE)            /* doubleword size (bytes) */
 #define CHUNKSIZE   (1<<7)      /* initial heap size (bytes) */
 
@@ -95,8 +98,11 @@ int mm_init(void)
  **********************************************************/
 void *coalesce(void *bp)
 {
-    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
-    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
+    char *prev_blkp = PREV_BLKP(bp);
+    char *next_blkp = NEXT_BLKP(bp);
+
+    size_t prev_alloc = GET_ALLOC(FTRP(prev_blkp));
+    size_t next_alloc = GET_ALLOC(HDRP(next_blkp));
     size_t size = GET_SIZE(HDRP(bp));
 
     if (prev_alloc && next_alloc) {       /* Case 1 */
@@ -104,25 +110,27 @@ void *coalesce(void *bp)
     }
 
     else if (prev_alloc && !next_alloc) { /* Case 2 */
-        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        size += GET_SIZE(HDRP(next_blkp));
         PUT(HDRP(bp), PACK(size, 0));
         PUT(FTRP(bp), PACK(size, 0));
         return (bp);
     }
 
     else if (!prev_alloc && next_alloc) { /* Case 3 */
-        size += GET_SIZE(HDRP(PREV_BLKP(bp)));
+        // two blocks need 4 tags, 1 block needs 2 tags therefore add 2 tags when coalescing
+        size += GET_SIZE(HDRP(prev_blkp)) + OVERHEAD_2;
         PUT(FTRP(bp), PACK(size, 0));
-        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
-        return (PREV_BLKP(bp));
+        PUT(HDRP(prev_blkp), PACK(size, 0));
+        return (prev_blkp);
     }
 
     else {            /* Case 4 */
-        size += GET_SIZE(HDRP(PREV_BLKP(bp)))  +
-            GET_SIZE(FTRP(NEXT_BLKP(bp)))  ;
-        PUT(HDRP(PREV_BLKP(bp)), PACK(size,0));
-        PUT(FTRP(NEXT_BLKP(bp)), PACK(size,0));
-        return (PREV_BLKP(bp));
+        // 3 blocks need 6 tags, 1 block need 2 tags therefore add 4 tags to the block size
+        size += GET_SIZE(HDRP(prev_blkp))  +
+            GET_SIZE(FTRP(next_blkp))  + OVERHEAD_4;
+        PUT(HDRP(prev_blkp), PACK(size,0));
+        PUT(FTRP(prev_blkp), PACK(size,0));
+        return (prev_blkp);
     }
 }
 
