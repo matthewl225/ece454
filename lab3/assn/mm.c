@@ -309,33 +309,6 @@ void mm_free(void *bp)
  **********************************************************/
 void *mm_malloc(size_t size)
 {
-    // 1. asize = 16byte_round(size). find free list index for asize. better_fit_size = (1<<(list_index-1) | 1<<(list_index-2))
-    // 2. if better_fit_size >= size
-    //    2a. Check the "wilderness" area for a size bigger than better_fit_size. Wilderness should try to be sorted or in some kind of BST
-    //    2b. if found, return that pointer and subtract from the wilderness block size. If it's a power of 2, add the remaining size to a regular index, otherwise put back in Wilderness
-    //    2c. if not found, sbrk a better_fit_size block and return that.
-    // 3. if better_fit_size < size
-    //    3a. check the free list index to see if a block is there. If yes, return that block and remove from free list
-    //    3b. if no, check the wilderness and split a block from there if possible.
-    //    3c. if nothing in wilderness will work, sbrk a block size corresponding to this index and return that
-    //
-    // Note: For sbrk, check a global pointer for the block at the very end of the heap. sbrk enough such that this block can fulfill the request
-
-
-    /** Fragmentation Analysis
-     * 
-     * Worst case is allocating 2^n+1 sizes. (e.g. 33 bytes, 65 bytes, 129 bytes)
-     * in this case, we'd use a better_fit_size block of 2^n + 2^(n-1) rather than 2^(n+1) = 2*2^n blocks.
-     * Fragmentation = (16 + 2^n + 2^(n-1) - 2^n - 1)/(2^n + 2^(n-1)) = (2^(n-1) + 15)/(3*2^(n-1)) which is 48% fragmentation for 33 bytes, and tends towards 33% as size increases
-     * If we didn't use better_fit_size blocks, we'd have Fragmentation = (16 + 2^n - 1)/(2*2^n) which is 58% fragmentation for 33 bytes, and tends towards 50% as size increases
-     * Therefore, we will keep our fragmentation below 33% for reasonable malloc/free use-cases
-     */
-
-    // Note: rounding to 16 byte alignment means that the caret addresses are 16 byte aligned
-    // [prev size (8 bytes) and a free bit][my size (8 bytes) and a free bit][data           ]|[prev size(8 bytes) and a free bit][my size(8 bytes) and a free bit][data          ]
-    // ^                                      ^                 ^                                     ^
-    // note: data length will be in multiples of 16 bytes
-
     size_t asize; /* adjusted block size */
     size_t extendsize; /* amount to extend heap if no fit */
     char * bp;
@@ -346,23 +319,34 @@ void *mm_malloc(size_t size)
 
     /* Adjust block size to include overhead and alignment reqs. */
     if (size <= DSIZE)
+    {
         asize = 2 * DSIZE;
+    }
     else
+    {
+        // TODO should set this to adjust to nearest bucket size, guaranteed multiple of 16
         asize = DSIZE * ((size + (DSIZE) + (DSIZE-1))/ DSIZE);
-
-    /* Search the free list for a fit */
-    if ((bp = find_fit(asize)) != NULL) {
-        place(bp, asize);
-        return bp;
     }
 
-    /* No fit found. Get more memory and place the block */
-    extendsize = MAX(asize, CHUNKSIZE);
-    if ((bp = extend_heap(extendsize/WSIZE)) == NULL)
-        return NULL;
-    place(bp, asize);
-    return bp;
+    size_t list_index = get_list_index(asize);
+    void *found_bp = NULL;
+    for (; list_index < MAX_LIST_INDEX && found_bp == NULL; ++list_index) {
+        found_bp = find_fit(free_list[list_index], asize);
+    }
 
+    if (!found_bp) {
+        // extend heap and set found_bp to new block
+        extendsize = MAX(asize, CHUNKSIZE);
+        found_bp = extend_heap(extendsize/WSIZE)
+        // if extend fails, return null
+        if (!found_bp) {
+            return NULL;
+        }
+    }
+
+    PUT(HDRP(found_bp), PACK(asize, 1));
+    PUT(FTRP(found_bp), PACK(asize, 1));
+    return found_bp
 }
 
 /**********************************************************
