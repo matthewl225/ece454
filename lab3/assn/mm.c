@@ -39,10 +39,12 @@ team_t team = {
  * Basic Constants and Macros
  * You are not required to use these macros but may find them helpful.
 *************************************************************************/
+
+// #define DEBUG
+
 #define WSIZE       sizeof(void *)            /* word size (bytes) */
 #define OVERHEAD    WSIZE
 #define OVERHEAD_4  OVERHEAD * 4;
-#define OVERHEAD_2  OVERHEAD * 2
 #define DSIZE       (2 * WSIZE)            /* doubleword size (bytes) */
 #define CHUNKSIZE   (1<<7)      /* initial heap size (bytes) */
 
@@ -67,7 +69,17 @@ team_t team = {
 #define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
-void* heap_listp = NULL;
+#define FREE_LIST_SIZE 31
+void *heap_listp = NULL;
+void *free_list[FREE_LIST_SIZE];
+
+// smallest block size is a DWORD of data and a DWORD of header/footer
+// we don't need the footer for this
+typedef struct linked_list {
+    size_t size_alloc;
+    struct linked_list *next;
+} linked_list_t;
+
 
 /**********************************************************
  * mm_init
@@ -76,17 +88,214 @@ void* heap_listp = NULL;
  **********************************************************/
 int mm_init(void)
 {
+    #ifdef DEBUG
+    #ifdef DEBUG
+    printf("************************MM INIT************************\n");
+    #endif
+    #endif
     if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1) {
         return -1;
     }
     PUT(heap_listp, 0);                         // alignment padding
     PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));   // prologue header
+    #ifdef DEBUG
+    #ifdef DEBUG
+    printf("Prologue header is %p\n", heap_listp + WSIZE);
+    #endif
+    #endif
     PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));   // prologue footer
+    #ifdef DEBUG
+    #ifdef DEBUG
+    printf("Prologue footer is %p\n", heap_listp + 2*WSIZE);
+    #endif
+    #endif
     PUT(heap_listp + (3 * WSIZE), PACK(0, 1));    // epilogue header
+    #ifdef DEBUG
+    #ifdef DEBUG
+    printf("Epilogue header is %p\n", heap_listp + 3*WSIZE);
+    #endif
+    #endif
     heap_listp += DSIZE;
+    for (int i = 0; i < FREE_LIST_SIZE; ++i) {
+        free_list[i] = NULL;
+    }
 
     return 0;
 }
+
+/**********************************************************
+ * get_list_index
+ * For a given size, return the smallest list index which can contain blocks of that size
+ **********************************************************/
+size_t get_list_index(size_t size) {
+    size_t result;
+    if (size <= 16) {
+        result = 0;
+    } else if (size <= 32) {
+        result = 1;
+    } else if (size <= 48) {
+        result = 2;
+    } else if (size <= 80) {
+        result = 3;
+    } else if (size <= 128) {
+        result = 4;
+    } else if (size <= 208) {
+        result = 5;
+    } else if (size <= 336) {
+        result = 6;
+    } else if (size <= 544) {
+        result = 7;
+    } else if (size <= 880) {
+        result = 8;
+    } else if (size <= 1424) {
+        result = 9;
+    } else if (size <= 2304) {
+        result = 10;
+    } else if (size <= 3728) {
+        result = 11;
+    } else if (size <= 6032) {
+        result = 12;
+    } else if (size <= 9760) {
+        result = 13;
+    } else if (size <= 15792) {
+        result = 14;
+    } else if (size <= 25552) {
+        result = 15;
+    } else if (size <= 41344) {
+        result = 16;
+    } else if (size <= 66896) {
+        result = 17;
+    } else if (size <= 108240) {
+        result = 18;
+    } else if (size <= 175136) {
+        result = 19;
+    } else if (size <= 283376) {
+        result = 20;
+    } else if (size <= 458512) {
+        result = 21;
+    } else if (size <= 741888) {
+        result = 22;
+    } else if (size <= 1200400) {
+        result = 23;
+    } else if (size <= 1942288) {
+        result = 24;
+    } else if (size <= 3142688) {
+        result = 25;
+    } else if (size <= 5084976) {
+        result = 26;
+    } else if (size <= 8227664) {
+        result = 27;
+    } else if (size <= 13312640) {
+        result = 28;
+    } else if (size <= 21540304) {
+        result = 29;
+    } else {
+        result = 30; // default, largest bucket
+    }
+    #ifdef DEBUG
+    #ifdef DEBUG
+    printf("\tFound list index %d\n", result);
+    #endif
+    #endif
+    return result;
+}
+
+void print_free_lists() {
+    #ifdef DEBUG
+    #ifdef DEBUG
+    printf("Free Lists: \n");
+    #endif
+    #endif
+    for (int i = 0; i < FREE_LIST_SIZE; ++i) {
+        #ifdef DEBUG
+        #ifdef DEBUG
+        printf("\t[%d] ", i, free_list[i]);
+        #endif
+        #endif
+        linked_list_t *curr = free_list[i];
+        while (curr != NULL) {
+            #ifdef DEBUG
+            #ifdef DEBUG
+            printf("%p(%d) -> ", curr, curr->size_alloc);
+            #endif
+            #endif
+            curr = curr->next;
+        }
+        #ifdef DEBUG
+        #ifdef DEBUG
+        printf("NULL\n");
+        #endif
+        #endif
+    }
+}
+
+/**********************************************************
+ * sorted_list_insert
+ * insert the given block into the given list at the correct position
+ **********************************************************/
+void *sorted_list_insert(void *free_list, void *bp, size_t size) {
+    #ifdef DEBUG
+    #ifdef DEBUG
+    printf("\tInserting bp %p, size %d into freelist %p\n", bp, size, free_list);
+    #endif
+    #endif
+    linked_list_t *ll_bp = (linked_list_t*)HDRP(bp);
+    // insert at the front if list is empty
+    if (free_list == NULL) {
+        ll_bp->next = NULL;
+        return ll_bp;
+    }
+
+    linked_list_t *current = (linked_list_t *)free_list;
+    linked_list_t *prev = NULL;
+    // look for two nodes where prev->size < size < next->size
+    // In the case of size ties, we should insert in address order with lowest address first
+    #ifdef DEBUG
+    printf("\t1. Current = %p prev = %p ll_bp = %p\n", current, prev, ll_bp);
+    #endif
+    while (current != NULL && (current->size_alloc < size || (current->size_alloc == size && current < ll_bp))) {
+        prev = current;
+        current = current->next;
+        #ifdef DEBUG
+        printf("\tCurrent = %p prev = %p\n", current, prev);
+        #endif
+    }
+    #ifdef DEBUG
+    printf("\t2. Current = %p prev = %p ll_bp = %p\n", current, prev, ll_bp);
+    #endif
+    ll_bp->next = current;
+    if (!prev) {
+        return ll_bp; // new head of the list
+    }
+    prev->next = ll_bp;
+    return free_list;
+}
+
+/**********************************************************
+ * sorted_list_insert
+ * search the given list and remove bp
+ **********************************************************/
+void *sorted_list_remove(void *free_list, void *bp) {
+    #ifdef DEBUG
+    printf("\tRemoving %p from freelist %p\n");
+    #endif
+    linked_list_t *current = (linked_list_t *)free_list;
+    linked_list_t *prev = NULL;
+    // remove from front of list
+    if (current == bp) {
+        return current->next;
+    }
+
+    // search for bp in the list
+    while (current != bp) {
+        prev = current;
+        current = current->next;
+    }
+    // remove it by setting the previous node to point to the next node, skipping current
+    prev->next = current->next;
+    return free_list;
+}
+
 
 /**********************************************************
  * coalesce
@@ -108,16 +317,24 @@ void *coalesce(void *bp)
 
 
     if (prev_alloc && next_alloc) {       /* Case 1 */
+        list_index = get_list_index(size);
+        #ifdef DEBUG
+        printf("\tNothing to coalesce\n", bp, free_list[list_index], size);
+        #endif
+        free_list[list_index] = sorted_list_insert(free_list[list_index], bp, size);
         return bp;
     }
 
     else if (prev_alloc && !next_alloc) { /* Case 2 */
+        #ifdef DEBUG
+        printf("Coalescing right, combining %p and %p\n", bp, next_blkp);
+        #endif
         // remove next_blkp from free list
         temp_size = GET_SIZE(HDRP(next_blkp));
         list_index = get_list_index(temp_size);
         free_list[list_index] = sorted_list_remove(free_list[list_index], HDRP(next_blkp));
 
-        size += temp_size + OVERHEAD_2;
+        size += temp_size;
         PUT(HDRP(bp), PACK(size, 0));
         PUT(FTRP(bp), PACK(size, 0));
         list_index = get_list_index(size);
@@ -127,12 +344,15 @@ void *coalesce(void *bp)
 
     else if (!prev_alloc && next_alloc) { /* Case 3 */
         // remove prev_blkp from free list
+        #ifdef DEBUG
+        printf("Coalescing left, combining %p and %p\n", prev_blkp, bp);
+        #endif
         temp_size = GET_SIZE(HDRP(prev_blkp));
         list_index = get_list_index(temp_size);
         free_list[list_index] = sorted_list_remove(free_list[list_index], HDRP(prev_blkp));
 
         // two blocks need 4 tags, 1 block needs 2 tags therefore add 2 tags when coalescing
-        size += temp_size + OVERHEAD_2;
+        size += temp_size;
         PUT(FTRP(bp), PACK(size, 0));
         PUT(HDRP(prev_blkp), PACK(size, 0));
         list_index = get_list_index(size);
@@ -140,12 +360,26 @@ void *coalesce(void *bp)
         return (prev_blkp);
     }
 
-    else {            /* Case 4 */
+    // TODO broken
+    else {
+        /* Case 4 */
         // 3 blocks need 6 tags, 1 block need 2 tags therefore add 4 tags to the block size
-        size += GET_SIZE(HDRP(prev_blkp))  +
-            GET_SIZE(FTRP(next_blkp)) + OVERHEAD_4;
+        #ifdef DEBUG
+        printf("Coalescing left and right, combining %p, %p and %p\n", prev_blkp, bp, next_blkp);
+        #endif
+        temp_size = GET_SIZE(HDRP(prev_blkp));
+        list_index = get_list_index(temp_size);
+        free_list[list_index] = sorted_list_remove(free_list[list_index], HDRP(prev_blkp));
+
+        temp_size = GET_SIZE(HDRP(next_blkp));
+        list_index = get_list_index(temp_size);
+        free_list[list_index] = sorted_list_remove(free_list[list_index], HDRP(next_blkp));
+
+        size += GET_SIZE(HDRP(prev_blkp)) + temp_size;
         PUT(HDRP(prev_blkp), PACK(size,0));
         PUT(FTRP(prev_blkp), PACK(size,0));
+        list_index = get_list_index(size);
+        free_list[list_index] = sorted_list_insert(free_list[list_index], prev_blkp, size);
         // TODO: remove next_blkp from free list
         return (prev_blkp);
     }
@@ -159,6 +393,9 @@ void *coalesce(void *bp)
  **********************************************************/
 void *extend_heap(size_t words)
 {
+    #ifdef DEBUG
+    printf("\tExtending heap by %d words = %d bytes\n", words, words*WSIZE);
+    #endif
     char *bp;
     size_t size;
 
@@ -166,14 +403,42 @@ void *extend_heap(size_t words)
     size = (words % 2) ? (words+1) * WSIZE : words * WSIZE;
     if ( (bp = mem_sbrk(size)) == (void *)-1 )
         return NULL;
+    #ifdef DEBUG
+    printf("\tsbrk'd bp is %p\n", bp);
+    #endif
 
-    /* Initialize free block header/footer and the epilogue header */
-    PUT(HDRP(bp), PACK(size, 0));                // free block header
-    PUT(FTRP(bp), PACK(size, 0));                // free block footer
-    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));        // new epilogue header
 
-    /* Coalesce if the previous block was free */
-    return coalesce(bp);
+    /* Coalesce left if the previous block was free */
+    char *prev_blkp = PREV_BLKP(bp);
+    size_t prev_alloc = GET_ALLOC(FTRP(prev_blkp));
+    #ifdef DEBUG
+    printf("\tPrevious blkp is %p and ", prev_blkp);
+    #endif
+    if (!prev_alloc) {
+        #ifdef DEBUG
+        printf("is not allocated\n");
+        #endif
+        // remove the previous block from the free list
+        size_t extra_size = GET_SIZE(HDRP(prev_blkp));
+        size_t list_index = get_list_index(extra_size);
+        free_list[list_index] = sorted_list_remove(free_list[list_index], HDRP(prev_blkp));
+        // coalesce left with heap and free'd block
+        size += extra_size;
+        bp = prev_blkp;
+    } else {
+        #ifdef DEBUG
+        printf("is allocated\n");
+        #endif
+    }
+    /* Initialize free block header/footer */
+    PUT(HDRP(bp), PACK(size, 0));
+    PUT(FTRP(bp), PACK(size, 0));
+    /* Initialize the epilogue header */
+    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));
+    #ifdef DEBUG
+    printf("\t**New epilogue header is %p\n", HDRP(NEXT_BLKP(bp)));
+    #endif
+    return bp;
 }
 
 
@@ -183,83 +448,27 @@ void *extend_heap(size_t words)
  * Return NULL if no free blocks can handle that size
  * Assumed that asize is aligned
  **********************************************************/
-void * find_fit(void *free_list, size_t asize)
+void *find_fit(void **free_list, size_t asize)
 {
+    #ifdef DEBUG
+    printf("\tLooking for asize %d in free_list %p\n", asize, *free_list);
+    #endif
     // the free list is sorted by size then by memory address, therefore the first block that fits at least asize is the best fit
-    linked_list_t *curr = (linked_list_t *)free_list;
+    linked_list_t *curr = (linked_list_t *)*free_list;
+    linked_list_t *prev = NULL;
     while (curr != NULL && curr->size_alloc < asize) {
+        prev = curr;
         curr = curr->next;
     }
     // returns null if not found / free_list empty
+    if (curr != NULL) {
+        if (prev == NULL) {
+            *free_list = curr->next;
+        }
+        curr = &curr->next;
+    }
     return curr;
 }
-
-// smallest block size is a DWORD of data and a DWORD of header/footer
-// we don't need the footer for this
-typedef struct linked_list {
-    size_t size_alloc;
-    struct linked_list *next;
-} linked_list_t;
-
-/**********************************************************
- * sorted_list_insert
- * insert the given block into the given list at the correct position
- **********************************************************/
-void *sorted_list_insert(void *free_list, void *bp, size_t size) {
-    linked_list_t *ll_bp = (linked_list_t*)HDRP(bp);
-    // insert at the front if list is empty
-    if (free_list == NULL) {
-        ll_bp->next = NULL;
-        return ll_bp;
-    }
-
-    linked_list_t *current = (linked_list_t *)free_list;
-    linked_list_t *prev = NULL;
-    // look for two nodes where prev->size < size < next->size
-    // In the case of size ties, we should insert in address order with lowest address first
-    while (current != NULL && (current->size_alloc < size || (current->size_alloc == size && current < ll_bp))) {
-        prev = current;
-        current = current->next;
-    }
-    prev->next = ll_bp;
-    ll_bp->next = current;
-    return free_list;
-}
-
-void *sorted_list_remove(void *free_list, void *bp) {
-
-    linked_list_t *current = (linked_list_t *)free_list;
-    linked_list_t *prev = NULL;
-    // remove from front of list
-    if (current == bp) {
-        return current->next;
-    }
-
-    // search for bp in the list
-    while (current != bp) {
-        prev = current;
-        current = current->next;
-    }
-    // remove it by setting the previous node to point to the next node, skipping current
-    prev->next = current->next;
-    return free_list;
-}
-
-/**********************************************************
- * insert_into_free_list
- * given a free'd block pointer, insert it into its appropriate free list at the correct position
- **********************************************************/
-void insert_into_free_list(void *bp) {
-    if (bp == mem_heap_lo()) {
-        // the last block never goes into a free list
-        return;
-    }
-
-    size_t size = GET_SIZE(HDRP(bp));
-    size_t list_index = get_list_index(size);
-    free_list[list_index] = sorted_list_insert(free_list[list_index], bp, size);
-}
-
 
 /**********************************************************
  * mm_free
@@ -267,6 +476,9 @@ void insert_into_free_list(void *bp) {
  **********************************************************/
 void mm_free(void *bp)
 {
+    #ifdef DEBUG
+    printf("Freeing %p\n", bp);
+    #endif
     // TODO: set the free bit and coalesce
     // will have to place block into either wilderness or free list
     if(bp == NULL){
@@ -276,6 +488,7 @@ void mm_free(void *bp)
     PUT(HDRP(bp), PACK(size,0));
     PUT(FTRP(bp), PACK(size,0));
     coalesce(bp);
+    print_free_lists();
 }
 
 
@@ -287,15 +500,21 @@ void mm_free(void *bp)
  *   in place(..)
  * If no block satisfies the request, the heap is extended
  **********************************************************/
-void *mm_malloc(size_t size)
-{
+void *mm_malloc(size_t size) {
+    #ifdef DEBUG
+    printf("Malloc'ing %d bytes\n", size);
+    #endif
     size_t asize; /* adjusted block size */
     size_t extendsize; /* amount to extend heap if no fit */
-    char * bp;
+    char * bp = NULL;
 
     /* Ignore spurious requests */
-    if (size == 0)
+    if (size == 0) {
+        #ifdef DEBUG
+        printf("\tReturning NULL\n");
+        #endif
         return NULL;
+    }
 
     /* Adjust block size to include overhead and alignment reqs. */
     if (size <= DSIZE)
@@ -309,24 +528,34 @@ void *mm_malloc(size_t size)
     }
 
     size_t list_index = get_list_index(asize);
-    void *found_bp = NULL;
-    for (; list_index < MAX_LIST_INDEX && found_bp == NULL; ++list_index) {
-        found_bp = find_fit(free_list[list_index], asize);
+    for (; list_index < FREE_LIST_SIZE && bp == NULL; ++list_index) {
+        bp = find_fit(&free_list[list_index], asize);
     }
 
-    if (!found_bp) {
+    if (!bp) {
         // extend heap and set found_bp to new block
         extendsize = MAX(asize, CHUNKSIZE);
-        found_bp = extend_heap(extendsize/WSIZE)
+        bp = extend_heap(extendsize/WSIZE);
         // if extend fails, return null
-        if (!found_bp) {
+        if (!bp) {
+            #ifdef DEBUG
+            printf("\tReturning NULL\n");
+            #endif
             return NULL;
         }
     }
+    #ifdef DEBUG
+    printf("\tFound bp %p, size %d\n", bp, GET_SIZE(HDRP(bp)));
+    #endif
 
-    PUT(HDRP(found_bp), PACK(asize, 1));
-    PUT(FTRP(found_bp), PACK(asize, 1));
-    return found_bp
+    asize = GET_SIZE(HDRP(bp));
+    PUT(HDRP(bp), PACK(asize, 1));
+    PUT(FTRP(bp), PACK(asize, 1));
+    // TODO: split blocks which are too large
+    #ifdef DEBUG
+    printf("\tReturning %p\n", bp);
+    #endif
+    return bp;
 }
 
 /**********************************************************
@@ -335,6 +564,9 @@ void *mm_malloc(size_t size)
  *********************************************************/
 void *mm_realloc(void *ptr, size_t size)
 {
+    #ifdef DEBUG
+    printf("Realloc'ing %p to %d bytes\n", ptr, size);
+    #endif
     // if size == 0, free
     // if ptr == null, malloc
     // If my current max size is > new size, do nothing
