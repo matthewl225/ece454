@@ -89,9 +89,7 @@ typedef struct linked_list {
 int mm_init(void)
 {
     #ifdef DEBUG
-    #ifdef DEBUG
     printf("************************MM INIT************************\n");
-    #endif
     #endif
     if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1) {
         return -1;
@@ -99,21 +97,15 @@ int mm_init(void)
     PUT(heap_listp, 0);                         // alignment padding
     PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));   // prologue header
     #ifdef DEBUG
-    #ifdef DEBUG
     printf("Prologue header is %p\n", heap_listp + WSIZE);
-    #endif
     #endif
     PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));   // prologue footer
     #ifdef DEBUG
-    #ifdef DEBUG
     printf("Prologue footer is %p\n", heap_listp + 2*WSIZE);
-    #endif
     #endif
     PUT(heap_listp + (3 * WSIZE), PACK(0, 1));    // epilogue header
     #ifdef DEBUG
-    #ifdef DEBUG
     printf("Epilogue header is %p\n", heap_listp + 3*WSIZE);
-    #endif
     #endif
     heap_listp += DSIZE;
     for (int i = 0; i < FREE_LIST_SIZE; ++i) {
@@ -193,38 +185,28 @@ size_t get_list_index(size_t size) {
         result = 30; // default, largest bucket
     }
     #ifdef DEBUG
-    #ifdef DEBUG
     printf("\tFound list index %d\n", result);
-    #endif
     #endif
     return result;
 }
 
 void print_free_lists() {
     #ifdef DEBUG
-    #ifdef DEBUG
     printf("Free Lists: \n");
-    #endif
     #endif
     for (int i = 0; i < FREE_LIST_SIZE; ++i) {
         #ifdef DEBUG
-        #ifdef DEBUG
         printf("\t[%d] ", i, free_list[i]);
-        #endif
         #endif
         linked_list_t *curr = free_list[i];
         while (curr != NULL) {
             #ifdef DEBUG
-            #ifdef DEBUG
             printf("%p(%d) -> ", curr, curr->size_alloc);
-            #endif
             #endif
             curr = curr->next;
         }
         #ifdef DEBUG
-        #ifdef DEBUG
         printf("NULL\n");
-        #endif
         #endif
     }
 }
@@ -235,9 +217,7 @@ void print_free_lists() {
  **********************************************************/
 void *sorted_list_insert(void *free_list, void *bp, size_t size) {
     #ifdef DEBUG
-    #ifdef DEBUG
     printf("\tInserting bp %p, size %d into freelist %p\n", bp, size, free_list);
-    #endif
     #endif
     linked_list_t *ll_bp = (linked_list_t*)HDRP(bp);
     // insert at the front if list is empty
