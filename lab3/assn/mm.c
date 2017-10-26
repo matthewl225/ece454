@@ -190,6 +190,7 @@ size_t get_list_index(size_t size) {
     return result;
 }
 
+#ifdef DEBUG
 void print_free_lists() {
     #ifdef DEBUG
     printf("Free Lists: \n");
@@ -210,11 +211,14 @@ void print_free_lists() {
         #endif
     }
 }
+#endif
 
 /**********************************************************
  * sorted_list_insert
  * insert the given block into the given list at the correct position
  **********************************************************/
+// TODO this is our biggest performance killer right now
+// we should probably replace this with a BST, or relax our sorting requirements
 void *sorted_list_insert(void *free_list, void *bp, size_t size) {
     #ifdef DEBUG
     printf("\tInserting bp %p, size %d into freelist %p\n", bp, size, free_list);
@@ -255,6 +259,7 @@ void *sorted_list_insert(void *free_list, void *bp, size_t size) {
  * sorted_list_insert
  * search the given list and remove bp
  **********************************************************/
+// TODO make the nodes doubly linked, so a remove can occur in O(1)
 void *sorted_list_remove(void *free_list, void *bp) {
     #ifdef DEBUG
     printf("\tRemoving %p from freelist %p\n");
@@ -468,7 +473,9 @@ void mm_free(void *bp)
     PUT(HDRP(bp), PACK(size,0));
     PUT(FTRP(bp), PACK(size,0));
     coalesce(bp);
+    #ifdef DEBUG
     print_free_lists();
+    #endif
 }
 
 
@@ -509,7 +516,8 @@ void *mm_malloc(size_t size) {
 
     size_t list_index = get_list_index(asize);
     for (; list_index < FREE_LIST_SIZE && bp == NULL; ++list_index) {
-        bp = find_fit(&free_list[list_index], asize);
+        if (free_list[list_index])
+            bp = find_fit(&free_list[list_index], asize);
     }
 
     if (!bp) {
