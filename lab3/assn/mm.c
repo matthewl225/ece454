@@ -123,7 +123,7 @@ int mm_init(void)
 size_t get_list_index(size_t size)
 {
     size_t result;
-    if (size < 15792) {
+    if (size < 15793) {
         if (size < 337) {
             if (size < 49) {
                 if (size < 17) {result = 0;}
@@ -329,28 +329,24 @@ void *sorted_list_insert(void *free_list, void *bp, size_t size)
  * search the given list and remove bp
  **********************************************************/
 // TODO make the nodes doubly linked, so a remove can occur in O(1)
-void *sorted_list_remove(void *free_list, void *bp)
+void sorted_list_remove(size_t free_list_index, void *hdrp_bp)
 {
     #ifdef DEBUG
     printf("\tRemoving %p from freelist %p\n");
     #endif
-    linked_list_t *current = (linked_list_t *)free_list;
-    linked_list_t *prev = NULL;
-    // remove from front of list
-    if (current == bp) {
-        if (current->next) current->next->prev = NULL;
-        return current->next;
-    }
 
-    // search for bp in the list
-    while (current != bp) {
-        prev = current;
-        current = current->next;
+    linked_list_t *ll_bp = (linked_list_t *)hdrp_bp;
+    linked_list_t *prev = ll_bp->prev;
+    linked_list_t *next = ll_bp->next;
+
+    if (next) {
+        next->prev = prev; // bp is not the last node in the list
     }
-    // remove it by setting the previous node to point to the next node, skipping current
-    prev->next = current->next;
-    if (current->next) current->next->prev = prev;
-    return free_list;
+    if (prev) {
+        prev->next = next; // bp is not the first node in the list
+    } else {
+        free_list[free_list_index] = next; // bp was the first node
+    }
 }
 
 /**********************************************************
@@ -428,7 +424,7 @@ void *coalesce(void *bp)
         // remove next_blkp from free list
         temp_size = GET_SIZE(HDRP(next_blkp));
         list_index = get_list_index(temp_size);
-        free_list[list_index] = sorted_list_remove(free_list[list_index], HDRP(next_blkp));
+        sorted_list_remove(list_index, HDRP(next_blkp));
 
         size += temp_size;
         PUT(HDRP(bp), PACK(size, 0));
@@ -445,7 +441,7 @@ void *coalesce(void *bp)
         #endif
         temp_size = GET_SIZE(HDRP(prev_blkp));
         list_index = get_list_index(temp_size);
-        free_list[list_index] = sorted_list_remove(free_list[list_index], HDRP(prev_blkp));
+        sorted_list_remove(list_index, HDRP(prev_blkp));
 
         // two blocks need 4 tags, 1 block needs 2 tags therefore add 2 tags when coalescing
         size += temp_size;
@@ -465,11 +461,11 @@ void *coalesce(void *bp)
         #endif
         temp_size = GET_SIZE(HDRP(prev_blkp));
         list_index = get_list_index(temp_size);
-        free_list[list_index] = sorted_list_remove(free_list[list_index], HDRP(prev_blkp));
+        sorted_list_remove(list_index, HDRP(prev_blkp));
 
         temp_size = GET_SIZE(HDRP(next_blkp));
         list_index = get_list_index(temp_size);
-        free_list[list_index] = sorted_list_remove(free_list[list_index], HDRP(next_blkp));
+        sorted_list_remove(list_index, HDRP(next_blkp));
 
         size += GET_SIZE(HDRP(prev_blkp)) + temp_size;
         PUT(HDRP(prev_blkp), PACK(size,0));
@@ -517,7 +513,7 @@ void *extend_heap(size_t words)
         // remove the previous block from the free list
         size_t extra_size = GET_SIZE(HDRP(prev_blkp));
         size_t list_index = get_list_index(extra_size);
-        free_list[list_index] = sorted_list_remove(free_list[list_index], HDRP(prev_blkp));
+        sorted_list_remove(list_index, HDRP(prev_blkp));
         // coalesce left with heap and free'd block
         size += extra_size;
         bp = prev_blkp;
