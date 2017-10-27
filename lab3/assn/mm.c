@@ -119,7 +119,8 @@ int mm_init(void)
  * get_list_index
  * For a given size, return the smallest list index which can contain blocks of that size
  **********************************************************/
-size_t get_list_index(size_t size) {
+size_t get_list_index(size_t size)
+{
     size_t result;
     if (size < 15792) {
         if (size < 337) {
@@ -251,28 +252,18 @@ size_t get_list_index(size_t size) {
     return result;
 }
 
-#ifdef DEBUG
 void print_free_lists() {
-    #ifdef DEBUG
     printf("Free Lists: \n");
-    #endif
     for (int i = 0; i < FREE_LIST_SIZE; ++i) {
-        #ifdef DEBUG
         printf("\t[%d] ", i, free_list[i]);
-        #endif
         linked_list_t *curr = free_list[i];
         while (curr != NULL) {
-            #ifdef DEBUG
             printf("%p(%d) -> ", curr, curr->size_alloc);
-            #endif
             curr = curr->next;
         }
-        #ifdef DEBUG
         printf("NULL\n");
-        #endif
     }
 }
-#endif
 
 /**********************************************************
  * sorted_list_insert
@@ -280,7 +271,8 @@ void print_free_lists() {
  **********************************************************/
 // TODO this is our biggest performance killer right now
 // we should probably replace this with a BST, or relax our sorting requirements
-void *sorted_list_insert(void *free_list, void *bp, size_t size) {
+void *sorted_list_insert(void *free_list, void *bp, size_t size)
+{
     #ifdef DEBUG
     printf("\tInserting bp %p, size %d into freelist %p\n", bp, size, free_list);
     #endif
@@ -321,7 +313,8 @@ void *sorted_list_insert(void *free_list, void *bp, size_t size) {
  * search the given list and remove bp
  **********************************************************/
 // TODO make the nodes doubly linked, so a remove can occur in O(1)
-void *sorted_list_remove(void *free_list, void *bp) {
+void *sorted_list_remove(void *free_list, void *bp)
+{
     #ifdef DEBUG
     printf("\tRemoving %p from freelist %p\n");
     #endif
@@ -342,6 +335,45 @@ void *sorted_list_remove(void *free_list, void *bp) {
     return free_list;
 }
 
+/**********************************************************
+ * split_block
+ * given a block pointer and a required size, split the block
+ * into a block which will fit the required size well, and a
+ * block containing the remainder bytes which is inserted into the free list
+ **********************************************************/
+void *split_block(void *bp, const size_t adjusted_req_size)
+{
+    void *hdrp_bp = HDRP(bp);
+    char bp_is_allocated = GET_ALLOC(hdrp_bp);
+    size_t current_size = GET_SIZE(hdrp_bp);
+    size_t current_size_index = get_list_index(current_size);
+    size_t remainder_size = current_size - adjusted_req_size;
+    size_t remainder_size_index = get_list_index(remainder_size);
+
+    // well sized. Don't split blocks if we are just going to return
+    // one huge block and insert one relatively tiny block into the free list
+    // therefore, if the index of the remainder is less than half the current
+    // size's index, don't bother splitting
+    if ((remainder_size_index << 1) < current_size_index) {
+        return bp;
+    }
+
+    // We will get a decent sized block from this split, so do it
+    PUT(hdrp_bp, PACK(adjusted_req_size, bp_is_allocated));
+    PUT(FTRP(bp), PACK(adjusted_req_size, bp_is_allocated));
+    // create the new block and set it as free
+    void *new_block = NEXT_BLKP(bp);
+    PUT(HDRP(new_block), PACK(remainder_size, 0));
+    PUT(FTRP(new_block), PACK(remainder_size, 0));
+    free_list[remainder_size_index] = sorted_list_insert(free_list[remainder_size_index], new_block, remainder_size);
+
+    #ifdef DEBUG
+    printf("\tSplit block of size %d(idx %d) into two blocks of size %d(idx %d) and %d(idx %d)\n", current_size, current_size_index, adjusted_req_size, get_list_index(adjusted_req_size), remainder_size, remainder_size_index);
+    print_free_lists();
+    #endif
+
+    return bp;
+}
 
 /**********************************************************
  * coalesce
@@ -487,7 +519,6 @@ void *extend_heap(size_t words)
     return bp;
 }
 
-
 /**********************************************************
  * find_fit
  * Traverse the heap searching for a block to fit asize
@@ -542,7 +573,6 @@ void mm_free(void *bp)
     #endif
 }
 
-
 /**********************************************************
  * mm_malloc
  * Allocate a block of size bytes.
@@ -551,7 +581,8 @@ void mm_free(void *bp)
  *   in place(..)
  * If no block satisfies the request, the heap is extended
  **********************************************************/
-void *mm_malloc(size_t size) {
+void *mm_malloc(size_t size)
+{
     #ifdef DEBUG
     printf("Malloc'ing %d bytes\n", size);
     #endif
@@ -579,6 +610,7 @@ void *mm_malloc(size_t size) {
     }
 
     size_t list_index = get_list_index(asize);
+    bp = find_fit(list_index, asize);
     for (; list_index < FREE_LIST_SIZE && bp == NULL; ++list_index) {
         if (free_list[list_index])
             bp = find_fit(list_index, asize);
@@ -595,6 +627,8 @@ void *mm_malloc(size_t size) {
             #endif
             return NULL;
         }
+    } else {
+        bp = split_block(bp, asize);
     }
     #ifdef DEBUG
     printf("\tFound bp %p, size %d\n", bp, GET_SIZE(HDRP(bp)));
