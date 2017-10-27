@@ -255,10 +255,10 @@ size_t get_list_index(size_t size)
 void print_free_lists() {
     printf("Free Lists: \n");
     for (int i = 0; i < FREE_LIST_SIZE; ++i) {
-        printf("\t[%d] ", i, free_list[i]);
+        printf("\t[%d] ", i);
         linked_list_t *curr = free_list[i];
         while (curr != NULL) {
-            printf("%p(%d) -> ", curr, curr->size_alloc);
+            printf("%p(%ld) -> ", curr, curr->size_alloc);
             curr = curr->next;
         }
         printf("NULL\n");
@@ -290,7 +290,7 @@ void *sorted_list_insert(void *free_list, void *bp, size_t size)
     #ifdef DEBUG
     printf("\t1. Current = %p prev = %p ll_bp = %p\n", current, prev, ll_bp);
     #endif
-    while (current != NULL && (current->size_alloc < size || (current->size_alloc == size && current < ll_bp))) {
+    while (current != NULL && current->size_alloc < size) {
         prev = current;
         current = current->next;
         #ifdef DEBUG
