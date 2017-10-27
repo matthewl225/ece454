@@ -78,6 +78,7 @@ void *free_list[FREE_LIST_SIZE];
 typedef struct linked_list {
     size_t size_alloc;
     struct linked_list *next;
+    struct linked_list *prev;
 } linked_list_t;
 
 
@@ -252,13 +253,26 @@ size_t get_list_index(size_t size)
     return result;
 }
 
+int check_free_list_pointers() {
+    for (int i = 0; i < FREE_LIST_SIZE; ++i) {
+        linked_list_t *curr = free_list[i];
+        linked_list_t *prev = NULL;
+        while (curr != NULL) {
+            if (curr->prev != prev) { return 0; }
+            prev = curr;
+            curr = curr->next;
+        }
+    }
+    return 1;
+}
+
 void print_free_lists() {
     printf("Free Lists: \n");
     for (int i = 0; i < FREE_LIST_SIZE; ++i) {
         printf("\t[%d] ", i);
         linked_list_t *curr = free_list[i];
         while (curr != NULL) {
-            printf("%p(%ld) -> ", curr, curr->size_alloc);
+            printf("%p(%ld) <-> ", curr, curr->size_alloc);
             curr = curr->next;
         }
         printf("NULL\n");
@@ -280,13 +294,13 @@ void *sorted_list_insert(void *free_list, void *bp, size_t size)
     // insert at the front if list is empty
     if (free_list == NULL) {
         ll_bp->next = NULL;
+        ll_bp->prev = NULL;
         return ll_bp;
     }
 
     linked_list_t *current = (linked_list_t *)free_list;
     linked_list_t *prev = NULL;
     // look for two nodes where prev->size < size < next->size
-    // In the case of size ties, we should insert in address order with lowest address first
     #ifdef DEBUG
     printf("\t1. Current = %p prev = %p ll_bp = %p\n", current, prev, ll_bp);
     #endif
@@ -301,6 +315,8 @@ void *sorted_list_insert(void *free_list, void *bp, size_t size)
     printf("\t2. Current = %p prev = %p ll_bp = %p\n", current, prev, ll_bp);
     #endif
     ll_bp->next = current;
+    ll_bp->prev = prev;
+    if (current) current->prev = ll_bp; // back pointer
     if (!prev) {
         return ll_bp; // new head of the list
     }
@@ -322,6 +338,7 @@ void *sorted_list_remove(void *free_list, void *bp)
     linked_list_t *prev = NULL;
     // remove from front of list
     if (current == bp) {
+        if (current->next) current->next->prev = NULL;
         return current->next;
     }
 
@@ -332,6 +349,7 @@ void *sorted_list_remove(void *free_list, void *bp)
     }
     // remove it by setting the previous node to point to the next node, skipping current
     prev->next = current->next;
+    if (current->next) current->next->prev = prev;
     return free_list;
 }
 
@@ -545,6 +563,7 @@ void *find_fit(const size_t fl_index, size_t asize)
         } else {
             prev->next = curr->next;
         }
+        if (curr->next) curr->next->prev = prev;
         curr = (linked_list_t*)&curr->next; // cast to supress compiler warning
     }
     return curr;
@@ -695,8 +714,9 @@ void *mm_realloc(void *ptr, size_t size)
  *********************************************************/
 int mm_check(void){
     // Probably something like iterating over all blocks and ensuring that:
-    // 1. If I'm marked free, there are no free blocks beside me (fully coalesced)
-    // 2. if I'm marked free, I'm in the proper free list/wilderness
-    // 3. if I'm marked allocated, the blocks to my left and right also say i'm allocated
-  return 1;
+    // 1. Ensure my free list pointers are all accurate and point forwards and backwards
+    return check_free_list_pointers();
+    // 2. If I'm marked free, there are no free blocks beside me (fully coalesced)
+    // 3. if I'm marked free, I'm in the proper free list/wilderness
+    // 4. if I'm marked allocated, the blocks to my left and right also say i'm allocated
 }
