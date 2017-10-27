@@ -121,6 +121,66 @@ int mm_init(void)
  **********************************************************/
 size_t get_list_index(size_t size) {
     size_t result;
+    if (size < 15792) {
+        if (size < 337) {
+            if (size < 49) {
+                if (size < 17) {result = 0;}
+                else if (size < 33) {result = 1;}
+                else {result = 2;}
+            } else {
+                if (size < 129) {
+                    if (size < 81) {result = 3;}
+                    else {result = 4;}
+                } else if (size < 209) {result = 5;}
+                else {result = 6;}
+            }
+        } else {
+            if (size < 2305) {
+                if (size < 881) {
+                    if (size < 545) {result = 7;}
+                    else {result = 8;}
+                } else if (size < 1425) {result = 9;}
+                else {result = 10;}
+            } else {
+                if (size < 6033) {
+                    if (size < 3729) {result = 11;}
+                    else {result = 12;}
+                } else if (size < 9761) {result = 13;}
+                else {result = 14;}
+            }
+        }
+    } else {
+        if (size < 741889) {
+            if (size < 108241) {
+                if (size < 41345) {
+                    if (size < 25553) {result = 15;}
+                    else {result = 16;}
+                } else if (size < 66897) {result = 17;}
+                else {result = 18;}
+            } else {
+                if (size < 283377) {
+                    if (size < 175137) {result = 19;}
+                    else {result = 20;}
+                } else if (size < 458513) {result = 21;}
+                else {result = 22;}
+            }
+        } else {
+            if (size < 5084977) {
+                if (size < 1942289) {
+                    if (size < 1200401) {result = 23;}
+                    else {result = 24;}
+                } else if (size < 3142689) {result = 25;}
+                else {result = 26;}
+            } else {
+                if (size < 13312641) {
+                    if (size < 8227665) {result = 27;}
+                    else {result = 28;}
+                } else if (size < 21540305) {result = 29;}
+                else {result = 30;}
+            }
+        }
+    }
+    /*
     if (size <= 16) {
         result = 0;
     } else if (size <= 32) {
@@ -184,6 +244,7 @@ size_t get_list_index(size_t size) {
     } else {
         result = 30; // default, largest bucket
     }
+    */
     #ifdef DEBUG
     printf("\tFound list index %d\n", result);
     #endif
@@ -432,14 +493,15 @@ void *extend_heap(size_t words)
  * Traverse the heap searching for a block to fit asize
  * Return NULL if no free blocks can handle that size
  * Assumed that asize is aligned
+ * Removes the returned block from the free list
  **********************************************************/
-void *find_fit(void **free_list, size_t asize)
+void *find_fit(const size_t fl_index, size_t asize)
 {
     #ifdef DEBUG
     printf("\tLooking for asize %d in free_list %p\n", asize, *free_list);
     #endif
     // the free list is sorted by size then by memory address, therefore the first block that fits at least asize is the best fit
-    linked_list_t *curr = (linked_list_t *)*free_list;
+    linked_list_t *curr = (linked_list_t *)free_list[fl_index];
     linked_list_t *prev = NULL;
     while (curr != NULL && curr->size_alloc < asize) {
         prev = curr;
@@ -448,9 +510,11 @@ void *find_fit(void **free_list, size_t asize)
     // returns null if not found / free_list empty
     if (curr != NULL) {
         if (prev == NULL) {
-            *free_list = curr->next;
+            free_list[fl_index] = curr->next;
+        } else {
+            prev->next = curr->next;
         }
-        curr = &curr->next;
+        curr = (linked_list_t*)&curr->next; // cast to supress compiler warning
     }
     return curr;
 }
@@ -517,7 +581,7 @@ void *mm_malloc(size_t size) {
     size_t list_index = get_list_index(asize);
     for (; list_index < FREE_LIST_SIZE && bp == NULL; ++list_index) {
         if (free_list[list_index])
-            bp = find_fit(&free_list[list_index], asize);
+            bp = find_fit(list_index, asize);
     }
 
     if (!bp) {
