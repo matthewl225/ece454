@@ -417,7 +417,7 @@ void *split_block(void *bp, const size_t adjusted_req_size)
     size_t remainder_size_index = get_list_index(remainder_size);
 
     #ifdef DEBUG
-    printf("\tIf we split this block into at least 1 block of %d, we'd have a remainder of %d(%d)\n", adjusted_req_size, remainder_size, remainder_size_index);
+    printf("\tIf we split this block into at least 1 block of %ld, we'd have a remainder of %ld(%ld)\n", adjusted_req_size, remainder_size, remainder_size_index);
     #endif
     // well sized. Don't split blocks if we are just going to return
     // one huge block and insert one relatively tiny block into the free list
@@ -685,7 +685,7 @@ void *mm_malloc(size_t size)
     size_t list_index = get_list_index(size);
     asize = get_bucket_size(list_index, size);
     #ifdef DEBUG
-    printf("\tAdjusted to %d bytes\n", asize);
+    printf("\tAdjusted to %ld bytes\n", asize);
     #endif
     for (; list_index < FREE_LIST_SIZE && bp == NULL; ++list_index) {
         if (free_list[list_index])
