@@ -423,7 +423,10 @@ void *split_block(void *bp, const size_t adjusted_req_size)
     // one huge block and insert one relatively tiny block into the free list
     // therefore, if the index of the remainder is less than half the current
     // size's index, don't bother splitting
-    if ((remainder_size_index << 1) < current_size_index) {
+    if ((remainder_size_index << 2) < current_size_index) {
+        #ifdef DEBUG
+        printf("\t**Too Small, don't split\n");
+        #endif
         return bp;
     }
 
@@ -556,7 +559,7 @@ void *extend_heap(size_t size_16)
 
     /* Coalesce left if the previous block was free */
     char *prev_blkp = PREV_BLKP(bp);
-    size_t prev_alloc = GET_ALLOC(FTRP(prev_blkp));
+    size_t prev_alloc = GET_ALLOC(HDRP(prev_blkp));
     #ifdef DEBUG
     printf("\tPrevious blkp is %p and ", prev_blkp);
     #endif
@@ -577,6 +580,9 @@ void *extend_heap(size_t size_16)
         #endif
     }
     /* Initialize free block header/footer */
+    #ifdef DEBUG
+    printf("\tNew freeblock size is %ld\n", size_16);
+    #endif
     PUT(HDRP(bp), PACK(size_16, 0));
     PUT(FTRP(bp), PACK(size_16, 0));
     /* Initialize the epilogue header */
@@ -695,9 +701,9 @@ void *mm_malloc(size_t size)
     if (!bp) {
         // extend heap and set found_bp to new block
         size_t free_heap_size = 0;
-        size_t heap_chunk_size_alloc = GET(heap_epilogue_hdrp - WSIZE);
+        size_t heap_chunk_size_alloc = GET(heap_epilogue_hdrp - OVERHEAD);
         #ifdef DEBUG
-        printf("\tHeap Chunk FTRP: %p\n", heap_epilogue_hdrp - WSIZE);
+        printf("\tHeap Chunk FTRP: %p\n", heap_epilogue_hdrp - OVERHEAD);
         #endif
         if (!(heap_chunk_size_alloc & 0x1)) {
             free_heap_size = heap_chunk_size_alloc & (~DSIZE - 1);
@@ -723,7 +729,6 @@ void *mm_malloc(size_t size)
     asize = GET_SIZE(HDRP(bp));
     PUT(HDRP(bp), PACK(asize, 1));
     PUT(FTRP(bp), PACK(asize, 1));
-    // TODO: split blocks which are too large
     #ifdef DEBUG
     printf("\tReturning %p\n", bp);
     #endif
