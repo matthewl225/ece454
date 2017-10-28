@@ -133,7 +133,7 @@ size_t get_bucket_size(size_t list_index, size_t current_size) {
     case 3: result = 128; break;
     case 4: result = 208; break;
     case 5: result = 336; break;
-    case 6: result = 554; break;
+    case 6: result = 544; break;
     case 7: result = 880; break;
     case 8: result = 1424; break;
     case 9: result = 2304; break;
@@ -535,17 +535,16 @@ void *coalesce(void *bp)
  * requirements of course. Free the former epilogue block
  * and reallocate its new header
  **********************************************************/
-void *extend_heap(size_t words)
+void *extend_heap(size_t size_16)
 {
     #ifdef DEBUG
-    printf("\tExtending heap by %d words = %d bytes\n", words, words*WSIZE);
+    printf("\tExtending heap by %ld bytes\n", size_16);
+    assert((size_16 % 16) == 0);
     #endif
     char *bp;
-    size_t size;
 
     /* Allocate an even number of words to maintain alignments */
-    size = (words % 2) ? (words+1) * WSIZE : words * WSIZE;
-    if ( (bp = mem_sbrk(size)) == (void *)-1 )
+    if ( (bp = mem_sbrk(size_16)) == (void *)-1 )
         return NULL;
     #ifdef DEBUG
     printf("\tsbrk'd bp is %p\n", bp);
@@ -567,7 +566,7 @@ void *extend_heap(size_t words)
         size_t list_index = get_list_index(extra_size);
         sorted_list_remove(list_index, HDRP(prev_blkp));
         // coalesce left with heap and free'd block
-        size += extra_size;
+        size_16 += extra_size;
         bp = prev_blkp;
     } else {
         #ifdef DEBUG
@@ -575,8 +574,8 @@ void *extend_heap(size_t words)
         #endif
     }
     /* Initialize free block header/footer */
-    PUT(HDRP(bp), PACK(size, 0));
-    PUT(FTRP(bp), PACK(size, 0));
+    PUT(HDRP(bp), PACK(size_16, 0));
+    PUT(FTRP(bp), PACK(size_16, 0));
     /* Initialize the epilogue header */
     heap_epilogue_hdrp = HDRP(NEXT_BLKP(bp));
     PUT(heap_epilogue_hdrp, PACK(0, 1));
@@ -704,7 +703,7 @@ void *mm_malloc(size_t size)
         printf("\tCurrent free heap size is %ld\n", free_heap_size);
         #endif
         extendsize = MAX(asize - free_heap_size, CHUNKSIZE); // we are always going to extend the heap by at least CHUNKSIZE bytes to reduce calls to sbrk
-        bp = extend_heap(extendsize/WSIZE);
+        bp = extend_heap(extendsize);
         // if extend fails, return null
         if (!bp) {
             #ifdef DEBUG
