@@ -42,11 +42,12 @@ team_t team = {
 
 // #define DEBUG
 
-#define WSIZE       sizeof(void *)            /* word size (bytes) */
-#define OVERHEAD    WSIZE
-#define OVERHEAD_4  OVERHEAD * 4;
-#define DSIZE       (2 * WSIZE)            /* doubleword size (bytes) */
-#define CHUNKSIZE   (1<<7)      /* initial heap size (bytes) */
+#define WSIZE         sizeof(void *)            /* word size (bytes) */
+#define OVERHEAD      WSIZE
+#define OVERHEAD_4    OVERHEAD * 4;
+#define DSIZE         (2 * WSIZE)            /* doubleword size (bytes) */
+#define DSIZE_MINUS_1 DSIZE-1
+#define CHUNKSIZE     (1<<7)      /* initial heap size (bytes) */
 
 #define MAX(x,y) ((x) > (y)?(x) :(y))
 
@@ -158,15 +159,9 @@ size_t get_bucket_size(size_t list_index, size_t current_size) {
     default: result = current_size; break;
     }
     if (result > (current_size + (current_size >> 2))) { // result > current_size + current_size/4 ==> result > 1.25*current_size
-        if (current_size <= DSIZE)
-        {
-            result = 2 * DSIZE;
-        }
-        else
-        {
-            // TODO should set this to adjust to nearest bucket size, guaranteed multiple of 16
-            result = DSIZE * ((current_size + (DSIZE) + (DSIZE-1))/ DSIZE);
-        }
+        // TODO should set this to adjust to nearest bucket size, guaranteed multiple of 16
+        result = (current_size + DSIZE_MINUS_1) & ~(DSIZE_MINUS_1);
+        //result = DSIZE * ((current_size + (DSIZE) + (DSIZE-1))/ DSIZE);
     }
     return result;
 }
@@ -684,7 +679,8 @@ void *mm_malloc(size_t size)
     }
     */
 
-    size_t list_index = get_list_index(size + OVERHEAD * 2);
+    size += (OVERHEAD << 1);
+    size_t list_index = get_list_index(size);
     asize = get_bucket_size(list_index, size);
     #ifdef DEBUG
     printf("\tAdjusted to %d bytes\n", asize);
