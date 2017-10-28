@@ -423,7 +423,7 @@ void *split_block(void *bp, const size_t adjusted_req_size)
     // one huge block and insert one relatively tiny block into the free list
     // therefore, if the index of the remainder is less than half the current
     // size's index, don't bother splitting
-    if ((remainder_size_index << 2) < current_size_index) {
+    if (((remainder_size_index << 2) < current_size_index) || (remainder_size < 31)) {
         #ifdef DEBUG
         printf("\t**Too Small, don't split\n");
         #endif
@@ -604,7 +604,7 @@ void *extend_heap(size_t size_16)
 void *find_fit(const size_t fl_index, size_t asize)
 {
     #ifdef DEBUG
-    printf("\tLooking for asize %ld in free_list %p\n", asize, *free_list);
+    printf("\tLooking for asize %ld in free_list %p\n", asize, free_list[fl_index]);
     #endif
     // the free list is sorted by size then by memory address, therefore the first block that fits at least asize is the best fit
     linked_list_t *curr = (linked_list_t *)free_list[fl_index];
@@ -673,19 +673,6 @@ void *mm_malloc(size_t size)
         #endif
         return NULL;
     }
-
-    /* Adjust block size to include overhead and alignment reqs. */
-    /*
-    if (size <= DSIZE)
-    {
-        asize = 2 * DSIZE;
-    }
-    else
-    {
-        // TODO should set this to adjust to nearest bucket size, guaranteed multiple of 16
-        asize = DSIZE * ((size + (DSIZE) + (DSIZE-1))/ DSIZE);
-    }
-    */
 
     size += (OVERHEAD << 1);
     size_t list_index = get_list_index(size);
