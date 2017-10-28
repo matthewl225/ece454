@@ -51,6 +51,7 @@ team_t team = {
 #define CHUNKSIZE     (1<<8)      /* initial heap size (bytes) */
 
 #define MAX(x,y) ((x) > (y)?(x) :(y))
+#define MIN(x,y) ((x) < (y)?(x) :(y))
 
 /* Pack a size and allocated bit into a word */
 #define PACK(size, alloc) ((size) | (alloc))
@@ -742,29 +743,34 @@ void *mm_realloc(void *ptr, size_t size)
 
     /* If size == 0 then this is just free, and we return NULL. */
     if(size == 0){
-      mm_free(ptr);
-      return NULL;
+        mm_free(ptr);
+        return NULL;
     }
     /* If oldptr is NULL, then this is just malloc. */
-    if (ptr == NULL)
-      return (mm_malloc(size));
+    if (ptr == NULL) {
+        return (mm_malloc(size));
+    }
 
     void *oldptr = ptr;
     void *newptr;
     size_t copySize;
 
-    newptr = mm_malloc(size);
-    if (newptr == NULL)
-      return NULL;
-
     /* Copy the old data. */
     copySize = GET_SIZE(HDRP(oldptr));
-    if (size < copySize)
-      copySize = size;
-    #ifdef DEBUG
-    printf("Copying %ld bytes from %p to %p\n", copySize, oldptr, newptr);
-    #endif
-    memmove(newptr, oldptr, copySize);
+    if ((size+OVERHEAD*2) <= copySize) {
+        #ifdef DEBUG
+        printf("Required size of %ld already fits in current size %ld\n", size+OVERHEAD*2, copySize);
+        #endif
+        return oldptr;
+    }
+    copySize -= OVERHEAD;
+
+    newptr = mm_malloc(size + (size >> 3)); // allocate more than enough. Reallocing once implies it'll happen again
+    if (newptr == NULL) {
+        return NULL;
+    }
+
+    memcpy(newptr, oldptr, copySize);
     mm_free(oldptr);
     return newptr;
 }
