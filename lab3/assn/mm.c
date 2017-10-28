@@ -774,7 +774,10 @@ void *mm_realloc(void *ptr, size_t size)
     copySize = GET_SIZE(HDRP(oldptr));
     if (size < copySize)
       copySize = size;
-    memcpy(newptr, oldptr, copySize);
+    #ifdef DEBUG
+    printf("Copying %ld bytes from %p to %p\n", copySize, oldptr, newptr);
+    #endif
+    memmove(newptr, oldptr, copySize);
     mm_free(oldptr);
     return newptr;
 }
