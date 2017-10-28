@@ -69,7 +69,7 @@ team_t team = {
 #define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
-#define FREE_LIST_SIZE 31
+#define FREE_LIST_SIZE 30
 void *heap_listp = NULL;
 void *free_list[FREE_LIST_SIZE];
 
@@ -117,6 +117,58 @@ int mm_init(void)
 }
 
 /**********************************************************
+ * get_bucket_size
+ * For a given list index, return its max size
+ **********************************************************/
+size_t get_bucket_size(size_t list_index, size_t current_size) {
+    size_t result;
+    switch(list_index) {
+    case 0: result = 32; break;
+    case 1: result = 48; break;
+    case 2: result = 80; break;
+    case 3: result = 128; break;
+    case 4: result = 208; break;
+    case 5: result = 336; break;
+    case 6: result = 554; break;
+    case 7: result = 880; break;
+    case 8: result = 1424; break;
+    case 9: result = 2304; break;
+    case 10: result = 3728; break;
+    case 11: result = 6032; break;
+    case 12: result = 9760; break;
+    case 13: result = 15792; break;
+    case 14: result = 25552; break;
+    case 15: result = 41344; break;
+    case 16: result = 66896; break;
+    case 17: result = 108240; break;
+    case 18: result = 175136; break;
+    case 19: result = 283376; break;
+    case 20: result = 458512; break;
+    case 21: result = 741888; break;
+    case 22: result = 1200400; break;
+    case 23: result = 1942288; break;
+    case 24: result = 3142688; break;
+    case 25: result = 5084976; break;
+    case 26: result = 8227664; break;
+    case 27: result = 13312640; break;
+    case 28: result = 21540304; break;
+    default: result = current_size; break;
+    }
+    if (result > (current_size + (current_size >> 2))) { // result > current_size + current_size/4 ==> result > 1.25*current_size
+        if (current_size <= DSIZE)
+        {
+            result = 2 * DSIZE;
+        }
+        else
+        {
+            // TODO should set this to adjust to nearest bucket size, guaranteed multiple of 16
+            result = DSIZE * ((current_size + (DSIZE) + (DSIZE-1))/ DSIZE);
+        }
+    }
+    return result;
+}
+
+/**********************************************************
  * get_list_index
  * For a given size, return the smallest list index which can contain blocks of that size
  **********************************************************/
@@ -126,59 +178,58 @@ size_t get_list_index(size_t size)
     if (size < 15793) {
         if (size < 337) {
             if (size < 49) {
-                if (size < 17) {result = 0;}
-                else if (size < 33) {result = 1;}
-                else {result = 2;}
+                if (size < 33) {result = 0;}
+                else {result = 1;}
             } else {
                 if (size < 129) {
-                    if (size < 81) {result = 3;}
-                    else {result = 4;}
-                } else if (size < 209) {result = 5;}
+                    if (size < 81) {result = 2;}
+                    else {result = 3;}
+                } else if (size < 209) {result = 4;}
                 else {result = 6;}
             }
         } else {
             if (size < 2305) {
                 if (size < 881) {
-                    if (size < 545) {result = 7;}
-                    else {result = 8;}
-                } else if (size < 1425) {result = 9;}
-                else {result = 10;}
+                    if (size < 545) {result = 6;}
+                    else {result = 7;}
+                } else if (size < 1425) {result = 8;}
+                else {result = 9;}
             } else {
                 if (size < 6033) {
-                    if (size < 3729) {result = 11;}
-                    else {result = 12;}
-                } else if (size < 9761) {result = 13;}
-                else {result = 14;}
+                    if (size < 3729) {result = 10;}
+                    else {result = 11;}
+                } else if (size < 9761) {result = 12;}
+                else {result = 13;}
             }
         }
     } else {
         if (size < 741889) {
             if (size < 108241) {
                 if (size < 41345) {
-                    if (size < 25553) {result = 15;}
-                    else {result = 16;}
-                } else if (size < 66897) {result = 17;}
-                else {result = 18;}
+                    if (size < 25553) {result = 14;}
+                    else {result = 15;}
+                } else if (size < 66897) {result = 16;}
+                else {result = 17;}
             } else {
                 if (size < 283377) {
-                    if (size < 175137) {result = 19;}
-                    else {result = 20;}
-                } else if (size < 458513) {result = 21;}
-                else {result = 22;}
+                    if (size < 175137) {result = 18;}
+                    else {result = 19;}
+                } else if (size < 458513) {result = 20;}
+                else {result = 21;}
             }
         } else {
             if (size < 5084977) {
                 if (size < 1942289) {
-                    if (size < 1200401) {result = 23;}
-                    else {result = 24;}
-                } else if (size < 3142689) {result = 25;}
-                else {result = 26;}
+                    if (size < 1200401) {result = 22;}
+                    else {result = 23;}
+                } else if (size < 3142689) {result = 24;}
+                else {result = 25;}
             } else {
                 if (size < 13312641) {
-                    if (size < 8227665) {result = 27;}
-                    else {result = 28;}
-                } else if (size < 21540305) {result = 29;}
-                else {result = 30;}
+                    if (size < 8227665) {result = 26;}
+                    else {result = 27;}
+                } else if (size < 21540305) {result = 28;}
+                else {result = 29;}
             }
         }
     }
@@ -614,6 +665,7 @@ void *mm_malloc(size_t size)
     }
 
     /* Adjust block size to include overhead and alignment reqs. */
+    /*
     if (size <= DSIZE)
     {
         asize = 2 * DSIZE;
@@ -623,8 +675,13 @@ void *mm_malloc(size_t size)
         // TODO should set this to adjust to nearest bucket size, guaranteed multiple of 16
         asize = DSIZE * ((size + (DSIZE) + (DSIZE-1))/ DSIZE);
     }
+    */
 
-    size_t list_index = get_list_index(asize);
+    size_t list_index = get_list_index(size + OVERHEAD * 2);
+    asize = get_bucket_size(list_index, size);
+    #ifdef DEBUG
+    printf("\tAdjusted to %d bytes\n", size);
+    #endif
     bp = find_fit(list_index, asize);
     for (; list_index < FREE_LIST_SIZE && bp == NULL; ++list_index) {
         if (free_list[list_index])
