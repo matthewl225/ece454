@@ -131,7 +131,7 @@ size_t get_bucket_size(size_t list_index, size_t current_size) {
     case 0: result = 32; break;
     case 1: result = 48; break;
     case 2: result = 80; break;
-    case 3: result = 128; break;
+    case 3: result = 144; break;
     case 4: result = 208; break;
     case 5: result = 336; break;
     case 6: result = 544; break;
@@ -180,7 +180,7 @@ size_t get_list_index(size_t size)
                 if (size < 33) {result = 0;}
                 else {result = 1;}
             } else {
-                if (size < 129) {
+                if (size < 145) {
                     if (size < 81) {result = 2;}
                     else {result = 3;}
                 } else if (size < 209) {result = 4;}
