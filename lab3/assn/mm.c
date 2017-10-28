@@ -71,6 +71,7 @@ team_t team = {
 
 #define FREE_LIST_SIZE 30
 void *heap_listp = NULL;
+void *heap_epilogue_hdrp = NULL;
 void *free_list[FREE_LIST_SIZE];
 
 // smallest block size is a DWORD of data and a DWORD of header/footer
@@ -95,16 +96,18 @@ int mm_init(void)
     if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1) {
         return -1;
     }
+    heap_epilogue_hdrp = heap_listp + 3*WSIZE;
+
     PUT(heap_listp, 0);                         // alignment padding
-    PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));   // prologue header
+    PUT(heap_listp + WSIZE, PACK(DSIZE, 1));   // prologue header
     #ifdef DEBUG
     printf("Prologue header is %p\n", heap_listp + WSIZE);
     #endif
-    PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));   // prologue footer
+    PUT(heap_listp + 2*WSIZE, PACK(DSIZE, 1));   // prologue footer
     #ifdef DEBUG
     printf("Prologue footer is %p\n", heap_listp + 2*WSIZE);
     #endif
-    PUT(heap_listp + (3 * WSIZE), PACK(0, 1));    // epilogue header
+    PUT(heap_epilogue_hdrp, PACK(0, 1));    // epilogue header, size = number of bytes
     #ifdef DEBUG
     printf("Epilogue header is %p\n", heap_listp + 3*WSIZE);
     #endif
@@ -415,6 +418,9 @@ void *split_block(void *bp, const size_t adjusted_req_size)
     size_t remainder_size = current_size - adjusted_req_size;
     size_t remainder_size_index = get_list_index(remainder_size);
 
+    #ifdef DEBUG
+    printf("\tIf we split this block into at least 1 block of %d, we'd have a remainder of %d(%d)\n", adjusted_req_size, remainder_size, remainder_size_index);
+    #endif
     // well sized. Don't split blocks if we are just going to return
     // one huge block and insert one relatively tiny block into the free list
     // therefore, if the index of the remainder is less than half the current
@@ -577,7 +583,8 @@ void *extend_heap(size_t words)
     PUT(HDRP(bp), PACK(size, 0));
     PUT(FTRP(bp), PACK(size, 0));
     /* Initialize the epilogue header */
-    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));
+    heap_epilogue_hdrp = HDRP(NEXT_BLKP(bp));
+    PUT(heap_epilogue_hdrp, PACK(0, 1));
     #ifdef DEBUG
     printf("\t**New epilogue header is %p\n", HDRP(NEXT_BLKP(bp)));
     #endif
@@ -680,9 +687,8 @@ void *mm_malloc(size_t size)
     size_t list_index = get_list_index(size + OVERHEAD * 2);
     asize = get_bucket_size(list_index, size);
     #ifdef DEBUG
-    printf("\tAdjusted to %d bytes\n", size);
+    printf("\tAdjusted to %d bytes\n", asize);
     #endif
-    bp = find_fit(list_index, asize);
     for (; list_index < FREE_LIST_SIZE && bp == NULL; ++list_index) {
         if (free_list[list_index])
             bp = find_fit(list_index, asize);
@@ -690,7 +696,18 @@ void *mm_malloc(size_t size)
 
     if (!bp) {
         // extend heap and set found_bp to new block
-        extendsize = MAX(asize, CHUNKSIZE);
+        size_t free_heap_size = 0;
+        size_t heap_chunk_size_alloc = GET(heap_epilogue_hdrp - WSIZE);
+        #ifdef DEBUG
+        printf("\tHeap Chunk FTRP: %p\n", heap_chunk_ftrp);
+        #endif
+        if (!(heap_chunk_size_alloc & 0x1)) {
+            free_heap_size = heap_chunk_size_alloc & (~DSIZE - 1);
+        }
+        #ifdef DEBUG
+        printf("\tCurrent free heap size is %ld\n", free_heap_size);
+        #endif
+        extendsize = MAX(asize - free_heap_size, CHUNKSIZE); // we are always going to extend the heap by at least CHUNKSIZE bytes to reduce calls to sbrk
         bp = extend_heap(extendsize/WSIZE);
         // if extend fails, return null
         if (!bp) {
@@ -699,9 +716,8 @@ void *mm_malloc(size_t size)
             #endif
             return NULL;
         }
-    } else {
-        bp = split_block(bp, asize);
     }
+    bp = split_block(bp, asize);
     #ifdef DEBUG
     printf("\tFound bp %p, size %d\n", bp, GET_SIZE(HDRP(bp)));
     #endif
