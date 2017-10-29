@@ -41,7 +41,7 @@ team_t team = {
 *************************************************************************/
 
 // #define DEBUG
-#define PRINT_FREE_LISTS
+// #define PRINT_FREE_LISTS
 
 #define WSIZE         sizeof(void *)            /* word size (bytes) */
 #define OVERHEAD      WSIZE
@@ -86,7 +86,6 @@ typedef struct linked_list {
 } linked_list_t;
 
 void print_free_lists() {
-    #ifdef PRINT_FREE_LISTS
     printf("Free Lists: \n");
     for (int i = 0; i < FREE_LIST_SIZE; ++i) {
         printf("\t[%d] ", i);
@@ -97,7 +96,6 @@ void print_free_lists() {
         }
         printf("NULL\n");
     }
-    #endif
 }
 
 /**********************************************************
@@ -107,9 +105,9 @@ void print_free_lists() {
  **********************************************************/
 int mm_init(void)
 {
-    // #ifdef DEBUG
+    #ifdef DEBUG
     printf("************************MM INIT************************\n");
-    // #endif
+    #endif
     if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1) {
         return -1;
     }
@@ -129,7 +127,9 @@ int mm_init(void)
     printf("Epilogue header is %p\n", heap_listp + 3*WSIZE);
     #endif
     heap_listp += DSIZE;
+    #ifdef PRINT_FREE_LISTS
     print_free_lists();
+    #endif
     for (int i = 0; i < FREE_LIST_SIZE; ++i) {
         free_list[i] = NULL;
     }
@@ -442,7 +442,9 @@ void *split_block(void *bp, const size_t adjusted_req_size)
 
     #ifdef DEBUG
     printf("\tSplit block of size %ld(idx %ld) into two blocks of size %ld(idx %ld) and %ld(idx %ld)\n", current_size, current_size_index, adjusted_req_size, get_list_index(adjusted_req_size), remainder_size, remainder_size_index);
+    #ifdef PRINT_FREE_LISTS
     print_free_lists();
+    #endif
     #endif
 
     return bp;
@@ -645,7 +647,7 @@ void mm_free(void *bp)
     PUT(HDRP(bp), PACK(size,0));
     PUT(FTRP(bp), PACK(size,0));
     coalesce(bp);
-    #ifdef DEBUG
+    #ifdef PRINT_FREE_LISTS
     print_free_lists();
     #endif
 }
@@ -752,27 +754,41 @@ void *mm_realloc(void *ptr, size_t size)
     void *oldptr = ptr;
     void *newptr = NULL;
     size_t copySize = GET_SIZE(HDRP(oldptr));
-    size = (size+OVERHEAD*2 + 15) & ~15; // multiple of 16
+    size = (size+OVERHEAD*2 + 0xF) & ~0xF; // multiple of 16
 
     if (size <= copySize) {
         #ifdef DEBUG
-        printf("Required size of %ld already fits in current size %ld\n", size+OVERHEAD*2, copySize);
+        printf("\tRequired size of %ld already fits in current size %ld\n", size+OVERHEAD*2, copySize);
         #endif
         // TODO: possibly shrink this allocated chunk, no tests do this so maybe lab4?
         return oldptr;
     }
     size_t extra_size_needed = size - copySize;
     void *old_hdrp = HDRP(oldptr);
-    void *next_blkp = NEXT_BLKP(old_hdrp);
-    void *prev_blkp = PREV_BLKP(old_hdrp);
+    void *next_blkp = NEXT_BLKP(oldptr);
+    void *prev_blkp = PREV_BLKP(oldptr);
     size_t next_size_alloc = GET(HDRP(next_blkp));
     size_t prev_size_alloc = GET(HDRP(prev_blkp));
     size_t right_size = next_size_alloc & ~(DSIZE_MINUS_1);
     size_t left_size = prev_size_alloc & ~(DSIZE_MINUS_1);
+    #ifdef DEBUG
+    printf("\tNext Block: %p : Size: %ld Allocated: ", next_blkp, next_size_alloc & ~0x1);
+    if (GET_ALLOC(next_blkp)) {
+        printf("Yes\n");
+    } else {
+        printf("No\n");
+    }
+    printf("\tPrev Block: %p : Size: %ld Allocated: ", prev_blkp, prev_size_alloc & ~0x1);
+    if (GET_ALLOC(prev_blkp)) {
+        printf("Yes\n");
+    } else {
+        printf("No\n");
+    }
+    #endif
     if (!(next_size_alloc & 0x1)) { // next block isn't allocated
         if (right_size >= extra_size_needed) {
             #ifdef DEBUG
-            printf("Expanding right\n");
+            printf("\tExpanding right\n");
             #endif
             // expand into right block
             PUT(FTRP(next_blkp), PACK(copySize + right_size, 0));
@@ -814,6 +830,7 @@ void *mm_realloc(void *ptr, size_t size)
             return oldptr;
         }
     }
+
     
     // left and right dont provide enough space to accommodate request
     // malloc a bigger block and free this block
@@ -824,8 +841,11 @@ void *mm_realloc(void *ptr, size_t size)
     if (newptr == NULL) {
         return NULL;
     }
+    #ifdef DEBUG
+    printf("\tCannot expand, malloc'd %p size %ld, free'd %p\n", newptr, GET_SIZE(HDRP(newptr)), oldptr);
 
     printf("\tCopying %p to %p, %ld bytes\n", oldptr, newptr, copySize);
+    #endif
     memcpy(newptr, oldptr, copySize);
     mm_free(oldptr);
     return newptr;
