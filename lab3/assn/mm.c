@@ -41,7 +41,7 @@ team_t team = {
 *************************************************************************/
 
 // #define DEBUG
-// #define PRINT_FREE_LISTS
+#define PRINT_FREE_LISTS
 
 #define WSIZE         sizeof(void *)            /* word size (bytes) */
 #define OVERHEAD      WSIZE
@@ -85,6 +85,20 @@ typedef struct linked_list {
     struct linked_list *prev;
 } linked_list_t;
 
+void print_free_lists() {
+    #ifdef PRINT_FREE_LISTS
+    printf("Free Lists: \n");
+    for (int i = 0; i < FREE_LIST_SIZE; ++i) {
+        printf("\t[%d] ", i);
+        linked_list_t *curr = free_list[i];
+        while (curr != NULL) {
+            printf("%p(%ld) <-> ", curr, curr->size_alloc);
+            curr = curr->next;
+        }
+        printf("NULL\n");
+    }
+    #endif
+}
 
 /**********************************************************
  * mm_init
@@ -93,9 +107,9 @@ typedef struct linked_list {
  **********************************************************/
 int mm_init(void)
 {
-    #ifdef DEBUG
+    // #ifdef DEBUG
     printf("************************MM INIT************************\n");
-    #endif
+    // #endif
     if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1) {
         return -1;
     }
@@ -115,6 +129,7 @@ int mm_init(void)
     printf("Epilogue header is %p\n", heap_listp + 3*WSIZE);
     #endif
     heap_listp += DSIZE;
+    print_free_lists();
     for (int i = 0; i < FREE_LIST_SIZE; ++i) {
         free_list[i] = NULL;
     }
@@ -316,20 +331,6 @@ int check_free_list_pointers() {
     return 1;
 }
 
-void print_free_lists() {
-    #ifdef PRINT_FREE_LISTS
-    printf("Free Lists: \n");
-    for (int i = 0; i < FREE_LIST_SIZE; ++i) {
-        printf("\t[%d] ", i);
-        linked_list_t *curr = free_list[i];
-        while (curr != NULL) {
-            printf("%p(%ld) <-> ", curr, curr->size_alloc);
-            curr = curr->next;
-        }
-        printf("NULL\n");
-    }
-    #endif
-}
 
 /**********************************************************
  * sorted_list_insert
@@ -749,24 +750,82 @@ void *mm_realloc(void *ptr, size_t size)
     }
 
     void *oldptr = ptr;
-    void *newptr;
-    size_t copySize;
+    void *newptr = NULL;
+    size_t copySize = GET_SIZE(HDRP(oldptr));
+    size = (size+OVERHEAD*2 + 15) & ~15; // multiple of 16
 
-    /* Copy the old data. */
-    copySize = GET_SIZE(HDRP(oldptr));
-    if ((size+OVERHEAD*2) <= copySize) {
+    if (size <= copySize) {
         #ifdef DEBUG
         printf("Required size of %ld already fits in current size %ld\n", size+OVERHEAD*2, copySize);
         #endif
+        // TODO: possibly shrink this allocated chunk, no tests do this so maybe lab4?
         return oldptr;
     }
-    copySize -= OVERHEAD;
+    size_t extra_size_needed = size - copySize;
+    void *old_hdrp = HDRP(oldptr);
+    void *next_blkp = NEXT_BLKP(old_hdrp);
+    void *prev_blkp = PREV_BLKP(old_hdrp);
+    size_t next_size_alloc = GET(HDRP(next_blkp));
+    size_t prev_size_alloc = GET(HDRP(prev_blkp));
+    size_t right_size = next_size_alloc & ~(DSIZE_MINUS_1);
+    size_t left_size = prev_size_alloc & ~(DSIZE_MINUS_1);
+    if (!(next_size_alloc & 0x1)) { // next block isn't allocated
+        if (right_size >= extra_size_needed) {
+            #ifdef DEBUG
+            printf("Expanding right\n");
+            #endif
+            // expand into right block
+            PUT(FTRP(next_blkp), PACK(copySize + right_size, 0));
+            PUT(old_hdrp, PACK(copySize + right_size, 1));
+            // combine then split_block
+            // no copy needed
+            newptr = split_block(oldptr, size);
+            return newptr;
+        } else if (!(prev_size_alloc & 0x1)) { // both right and left are free
+            if (left_size >= extra_size_needed) { // just left is enough
+                // expand into left block
+                // memmove required
+                // combine then split_block
+                // return prev_blkp;
+            } else if ((left_size + right_size) >= extra_size_needed) {
+                // expand into both right and left block
+                // combine then split_block
+                // memmove required
+                // return prev_blkp;
+            }
+        }
+    } else if (!(prev_size_alloc & 0x1)) { // prev block isn't allocated but next block is
+        if (left_size >= extra_size_needed) { // just left is enough
+            // expand into left block
+            // combine then split_block
+            // memmove required
+            // return prev_blkp;
+        }
+    }
+
+    if (HDRP(next_blkp) == heap_epilogue_hdrp) {
+        if (extend_heap(extra_size_needed)) {
+            // we can now expand right
+            #ifdef DEBUG
+            printf("\tExtended heap to accommodate realloc\n");
+            #endif
+            PUT(old_hdrp, PACK(size, 1));
+            PUT(FTRP(oldptr), PACK(size, 1));
+            return oldptr;
+        }
+    }
+    
+    // left and right dont provide enough space to accommodate request
+    // malloc a bigger block and free this block
+        
+    copySize -= OVERHEAD; // don't need to copy the footer block
 
     newptr = mm_malloc(size + (size >> 3)); // allocate more than enough. Reallocing once implies it'll happen again
     if (newptr == NULL) {
         return NULL;
     }
 
+    printf("\tCopying %p to %p, %ld bytes\n", oldptr, newptr, copySize);
     memcpy(newptr, oldptr, copySize);
     mm_free(oldptr);
     return newptr;
