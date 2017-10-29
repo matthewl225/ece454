@@ -664,7 +664,6 @@ void *mm_malloc(size_t size)
     printf("Malloc'ing %ld bytes\n", size);
     #endif
     size_t asize; /* adjusted block size */
-    size_t extendsize; /* amount to extend heap if no fit */
     char * bp = NULL;
 
     /* Ignore spurious requests */
@@ -699,8 +698,7 @@ void *mm_malloc(size_t size)
         #ifdef DEBUG
         printf("\tCurrent free heap size is %ld\n", free_heap_size);
         #endif
-        extendsize = MAX(asize - free_heap_size, CHUNKSIZE); // we are always going to extend the heap by at least CHUNKSIZE bytes to reduce calls to sbrk
-        bp = extend_heap(extendsize);
+        bp = extend_heap(MAX(asize - free_heap_size, CHUNKSIZE));// we are always going to extend the heap by at least CHUNKSIZE bytes to reduce calls to sbrk
         // if extend fails, return null
         if (!bp) {
             #ifdef DEBUG
