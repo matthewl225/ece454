@@ -7,4 +7,4 @@ done
 echo "==================="
 echo "Overall Performance"
 echo "==================="
-./mdriver -av
+./mdriver -lav
