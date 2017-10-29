@@ -161,7 +161,6 @@ size_t get_bucket_size(size_t list_index, size_t current_size) {
     default: result = current_size; break;
     }
     if (result > (current_size + (current_size >> 2))) { // result > current_size + current_size/4 ==> result > 1.25*current_size
-        // TODO should set this to adjust to nearest bucket size, guaranteed multiple of 16
         result = (current_size + DSIZE_MINUS_1) & ~(DSIZE_MINUS_1);
         //result = DSIZE * ((current_size + (DSIZE) + (DSIZE-1))/ DSIZE);
     }
