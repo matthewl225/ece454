@@ -43,7 +43,7 @@
  * of free block at the time of the call. Note that this big-O analysis ignores the 
  * overhead of the mem_sbrk call.
  *
- * This allocator uses immediate block coalescing and employs 
+ * This allocator uses immediate free block coalescing and employs 
  * a greedy strategy. Therefore there will be no adjacent free blocks in 
  * the heap at any given time. Since doubly-linked free lists are used throughout
  * the allocator, mm_free runs in constant O(1) time.
@@ -62,6 +62,10 @@
  *       is free and large enough to accomodate the request when coalesced with the current 
  *       block. If so, we coalesce these blocks, move the data from the original pointer to 
  *       its new payload pointer, and split the resulting block to ensure a good fit.
+ *    5. If no blocks can be coalesced to accommodate the request, we check if extending the heap
+ *       will accommodate the request and do so if possible.
+ *    6. If the above steps do not apply, we malloc a new block, copy the old contents to this
+ *       this block and free the old block.
  * Note that the allocator will try to provide more than the requested space if we have to
  * proceed past step #2 above. This is done to increase throughput as realloc'd blocks of memory
  * are likely to be realloced again.
@@ -715,7 +719,28 @@ void *mm_malloc(size_t size)
 
 /**********************************************************
  * mm_realloc
- * Implemented simply in terms of mm_malloc and mm_free
+ * Given a pointer and a size, return a pointer to a block of memory which is at least size bytes
+ * and contains the contents of the given pointer if valid.
+ * This is achieved through several steps:
+ *    1. We check if the call to mm_realloc should be interpretted as a mm_free (size = 0)
+ *       or mm_malloc (ptr = NULL) call. These functions are used to fulfill these requests.
+ *    2. We check to see if the size of the block is already large enough to 
+ *       accomodate the requested size. If this is the case, the original pointer
+ *       returned and no further modifications are required.
+ *    3. We check to see if the next block in the heap is allocated. If not, we check
+ *       if this free block coalesced with the current block is large enough to accomodate 
+ *       the request. If so, we coalesce the current block with the next block, possibly
+ *       splitting this coalesced block to better fit the request.
+ *    4. If enabled by the TRY_REALLOC_LEFT option, we check to see if the previous block
+ *       is free and large enough to accomodate the request when coalesced with the current 
+ *       block. If so, we coalesce these blocks, move the data from the original pointer to 
+ *       its new payload pointer, and split the resulting block to ensure a good fit.
+ *    5. If no blocks can be coalesced to accommodate the request, we check if extending the heap
+ *       will accommodate the request and do so if possible.
+ *    6. If none of the above steps apply, mm_malloc a new block, move the old contents to 
+ *       this new block and mm_free the old pointer.
+ * Note that we try to provide more than enough space to accomodate the request, as blocks are likely
+ * to be mm_realloc'd again after the first call to mm_realloc. This is done to improve throughput.
  *********************************************************/
 void *mm_realloc(void *ptr, size_t size)
 {
