@@ -42,6 +42,7 @@ team_t team = {
 
 // #define DEBUG
 // #define PRINT_FREE_LISTS
+// #define TRY_REALLOC_LEFT
 
 #define WSIZE         sizeof(void *)            /* word size (bytes) */
 #define OVERHEAD      WSIZE
@@ -386,6 +387,10 @@ void sorted_list_remove(size_t free_list_index, void *hdrp_bp)
 {
     #ifdef DEBUG
     printf("\tRemoving %p from freelist %p\n", hdrp_bp, free_list[free_list_index]);
+    #ifdef PRINT_FREE_LISTS
+    printf("Before ");
+    print_free_lists();
+    #endif
     #endif
 
     linked_list_t *ll_bp = (linked_list_t *)hdrp_bp;
@@ -400,6 +405,10 @@ void sorted_list_remove(size_t free_list_index, void *hdrp_bp)
     } else {
         free_list[free_list_index] = next; // bp was the first node
     }
+    #ifdef PRINT_FREE_LISTS
+    printf("After ");
+    print_free_lists();
+    #endif
 }
 
 /**********************************************************
@@ -766,11 +775,13 @@ void *mm_realloc(void *ptr, size_t size)
     size_t extra_size_needed = size - copySize;
     void *old_hdrp = HDRP(oldptr);
     void *next_blkp = NEXT_BLKP(oldptr);
-    void *prev_blkp = PREV_BLKP(oldptr);
     size_t next_size_alloc = GET(HDRP(next_blkp));
-    size_t prev_size_alloc = GET(HDRP(prev_blkp));
     size_t right_size = next_size_alloc & ~(DSIZE_MINUS_1);
+    #ifdef TRY_REALLOC_LEFT
+    void *prev_blkp = PREV_BLKP(oldptr);
+    size_t prev_size_alloc = GET(HDRP(prev_blkp));
     size_t left_size = prev_size_alloc & ~(DSIZE_MINUS_1);
+    #endif
     #ifdef DEBUG
     printf("\tNext Block: %p : Size: %ld Allocated: ", next_blkp, next_size_alloc & ~0x1);
     if (GET_ALLOC(next_blkp)) {
@@ -778,6 +789,7 @@ void *mm_realloc(void *ptr, size_t size)
     } else {
         printf("No\n");
     }
+    #ifdef TRY_REALLOC_LEFT
     printf("\tPrev Block: %p : Size: %ld Allocated: ", prev_blkp, prev_size_alloc & ~0x1);
     if (GET_ALLOC(prev_blkp)) {
         printf("Yes\n");
@@ -785,39 +797,67 @@ void *mm_realloc(void *ptr, size_t size)
         printf("No\n");
     }
     #endif
+    #endif
     if (!(next_size_alloc & 0x1)) { // next block isn't allocated
         if (right_size >= extra_size_needed) {
             #ifdef DEBUG
             printf("\tExpanding right\n");
             #endif
             // expand into right block
-            PUT(FTRP(next_blkp), PACK(copySize + right_size, 0));
+            sorted_list_remove(get_list_index(right_size), HDRP(next_blkp));
+            // PUT(FTRP(next_blkp), PACK(copySize + right_size, 0));
             PUT(old_hdrp, PACK(copySize + right_size, 1));
             // combine then split_block
             // no copy needed
             newptr = split_block(oldptr, size);
+            PUT(FTRP(newptr), GET(HDRP(newptr)));
             return newptr;
-        } else if (!(prev_size_alloc & 0x1)) { // both right and left are free
+        } 
+        #ifdef TRY_REALLOC_LEFT
+        else if (!(prev_size_alloc & 0x1)) { // both right and left are free
             if (left_size >= extra_size_needed) { // just left is enough
+                #ifdef DEBUG
+                printf("\tExpanding left1\n");
+                #endif
                 // expand into left block
+                sorted_list_remove(get_list_index(left_size), HDRP(prev_blkp));
                 // memmove required
                 // combine then split_block
                 // return prev_blkp;
             } else if ((left_size + right_size) >= extra_size_needed) {
+                #ifdef DEBUG
+                printf("\tExpanding left and right\n");
+                #endif
                 // expand into both right and left block
                 // combine then split_block
                 // memmove required
                 // return prev_blkp;
             }
         }
-    } else if (!(prev_size_alloc & 0x1)) { // prev block isn't allocated but next block is
-        if (left_size >= extra_size_needed) { // just left is enough
+        #endif
+    } 
+    #ifdef TRY_REALLOC_LEFT
+    else if (!(prev_size_alloc & 0x1)) { // prev block isn't allocated but next block is
+        if (left_size >= extra_size_needed && extra_size_needed < 33) { // just left is enough, but we also need a decent amount of memory
+            #ifdef DEBUG
+            printf("\tExpanding left2 for %ld bytes\n", extra_size_needed);
+            #endif
             // expand into left block
+            sorted_list_remove(get_list_index(left_size), HDRP(prev_blkp));
+            PUT(HDRP(prev_blkp), PACK(left_size + copySize, 1));
+            memmove(prev_blkp, oldptr, copySize);
+            newptr = split_block(prev_blkp, size);
+            PUT(FTRP(newptr), GET(HDRP(newptr)));
+            #ifdef DEBUG
+            printf("\tReturning %p, size %ld and %ld\n", newptr, GET(HDRP(newptr)), GET(FTRP(newptr)));
+            #endif
+            return newptr;
             // combine then split_block
             // memmove required
             // return prev_blkp;
         }
     }
+    #endif
 
     if (HDRP(next_blkp) == heap_epilogue_hdrp) {
         if (extend_heap(extra_size_needed)) {
