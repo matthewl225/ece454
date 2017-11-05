@@ -1,12 +1,70 @@
 /*
- * This implementation replicates the implicit list implementation
- * provided in the textbook
- * "Computer Systems - A Programmer's Perspective"
- * Blocks are never coalesced or reused.
- * Realloc is implemented directly using mm_malloc and mm_free.
+ * This allocator uses the segregated free list strategy with
+ * buckets of Fibonacci sizes, starting at 32 and 48 bytes. The last
+ * bucket is a catch-all which contains all sizes which are too big to fit into
+ * one of the smaller buckets.
  *
- * NOTE TO STUDENTS: Replace this header comment with your own header
- * comment that gives a high level description of your solution.
+ * Allocated blocks contain an 8 byte header and an 8 byte footer,
+ * and are 16 byte aligned. The contents of each allocated block are as follows:
+ * bit 63          bit 1               bit 0
+ *   _____________________________________
+ *   | size (63 bits) | allocated? (1bit)|
+ *   | Payload                           |
+ *   | Payload                           |
+ *   | Payload                           |
+ *   | size (63 bits) | allocated? (1bit)|
+ *   -------------------------------------
+ *
+ * Free blocks contain the same header and footer as in an allocated block, 
+ * except part of the payload is used to implement doubly-linked free lists.
+ * Therefore, the contents of each free block are as follows:
+ *
+ * bit 63          bit 1               bit 0
+ *   _____________________________________
+ *   | size (63 bits) | allocated? (1bit)|
+ *   | Next free block pointer           |
+ *   | Previous free block pointer       |
+ *   | Unused (multiple rows)            |
+ *   | size (63 bits) | allocated? (1bit)|
+ *   -------------------------------------
+ * Note that we use a helper type (linked_list_t) to simplify accesses to the
+ * next and previous pointers.
+ *
+ * Allocations are fulfilled by traversing the free lists in order to find an
+ * unallocated block which can fit the request. If the found block is too large
+ * to reasonably return to the caller of mm_malloc, the allocator will split the
+ * block into two blocks: The first block will be created such that it is large
+ * enough to accommodate the requst and will be returned by mm_malloc, while the 
+ * second block will contain the remainder from the original block and will be 
+ * inserted into its appropriate free list. If no block can be found, the unallocated 
+ * bytes at the end of the heap are expanded using a call to mem_sbrk and returned to 
+ * the user.
+ * Therefore the expected average runtime of mm_malloc is O(M), where M is the number 
+ * of free block at the time of the call. Note that this big-O analysis ignores the 
+ * overhead of the mem_sbrk call.
+ *
+ * This allocator uses immediate block coalescing and employs 
+ * a greedy strategy. Therefore there will be no adjacent free blocks in 
+ * the heap at any given time. Since doubly-linked free lists are used throughout
+ * the allocator, mm_free runs in constant O(1) time.
+ *
+ * This allocator provides realloc functionality in several steps:
+ *    1. We check if the call to mm_realloc should be interpretted as a mm_free 
+ *       or mm_malloc call. These functions are used to fulfill these requests.
+ *    2. We check to see if the size of the block is already large enough to 
+ *       accomodate the requested size. If this is the case, the original pointer
+ *       returned and no further modifications are required.
+ *    3. We check to see if the next block in the heap is allocated. If not, we check
+ *       if this free block coalesced with the current block is large enough to accomodate 
+ *       the request. If so, we coalesce the current block with the next block, possibly
+ *       splitting this coalesced block to better fit the request.
+ *    4. If enabled by the TRY_REALLOC_LEFT option, we check to see if the previous block
+ *       is free and large enough to accomodate the request when coalesced with the current 
+ *       block. If so, we coalesce these blocks, move the data from the original pointer to 
+ *       its new payload pointer, and split the resulting block to ensure a good fit.
+ * Note that the allocator will try to provide more than the requested space if we have to
+ * proceed past step #2 above. This is done to increase throughput as realloc'd blocks of memory
+ * are likely to be realloced again.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -817,7 +875,7 @@ int mm_check(void){
     // 1. Ensure my free list pointers are all accurate and point forwards and backwards
     return check_free_list_pointers();
     // 2. If I'm marked free, there are no free blocks beside me (fully coalesced)
-    // 3. if I'm marked free, I'm in the proper free list/wilderness
+    // 3. if I'm marked free, I'm in the proper free list
     // 4. if I'm marked allocated, the blocks to my left and right also say i'm allocated
 }
 
