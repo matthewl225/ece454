@@ -782,14 +782,14 @@ void *mm_realloc(void *ptr, size_t size)
     #endif
     #ifdef DEBUG
     printf("\tNext Block: %p : Size: %ld Allocated: ", next_blkp, next_size_alloc & ~0x1);
-    if (GET_ALLOC(next_blkp)) {
+    if (GET_ALLOC(HDRP(next_blkp))) {
         printf("Yes\n");
     } else {
         printf("No\n");
     }
     #ifdef TRY_REALLOC_LEFT
     printf("\tPrev Block: %p : Size: %ld Allocated: ", prev_blkp, prev_size_alloc & ~0x1);
-    if (GET_ALLOC(prev_blkp)) {
+    if (GET_ALLOC(HDRP(prev_blkp))) {
         printf("Yes\n");
     } else {
         printf("No\n");
