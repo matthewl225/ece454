@@ -105,6 +105,7 @@ team_t team = {
 // #define DEBUG
 // #define PRINT_FREE_LISTS
 // #define TRY_REALLOC_LEFT
+// #define CHECK_HEAP_CONST
 
 #define WSIZE         sizeof(void *)            /* word size (bytes) */
 #define OVERHEAD      WSIZE
@@ -150,6 +151,10 @@ typedef struct linked_list {
 // forward declaration of helper functions
 void print_free_lists();
 int check_free_list_pointers();
+int check_coalesced_matching_frees();
+int traverse_heap_total_free();
+int check_proper_list();
+int mm_check(void);
 
 /**********************************************************
  * mm_init
@@ -641,6 +646,9 @@ void mm_free(void *bp)
     #ifdef PRINT_FREE_LISTS
     print_free_lists();
     #endif
+    #ifdef CHECK_HEAP_CONST
+    assert(mm_check() != 0);
+    #endif
 }
 
 /**********************************************************
@@ -713,6 +721,9 @@ void *mm_malloc(size_t size)
     PUT(FTRP(bp), PACK(asize, 1));
     #ifdef DEBUG
     printf("\tReturning %p\n", bp);
+    #endif
+    #ifdef CHECK_HEAP_CONST
+    assert(mm_check() != 0);
     #endif
     return bp;
 }
@@ -809,6 +820,9 @@ void *mm_realloc(void *ptr, size_t size)
             // no copy needed
             newptr = split_block(oldptr, size);
             PUT(FTRP(newptr), GET(HDRP(newptr)));
+            #ifdef CHECK_HEAP_CONST
+            assert(mm_check() != 0);
+            #endif
             return newptr;
         } 
         #ifdef TRY_REALLOC_LEFT
@@ -848,6 +862,9 @@ void *mm_realloc(void *ptr, size_t size)
             PUT(FTRP(newptr), GET(HDRP(newptr)));
             #ifdef DEBUG
             printf("\tReturning %p, size %ld and %ld\n", newptr, GET(HDRP(newptr)), GET(FTRP(newptr)));
+            #endif
+            #ifdef CHECK_HEAP_CONST
+            assert(mm_check() != 0);
             #endif
             return newptr;
             // combine then split_block
@@ -898,10 +915,10 @@ void *mm_realloc(void *ptr, size_t size)
 int mm_check(void){
     // Probably something like iterating over all blocks and ensuring that:
     // 1. Ensure my free list pointers are all accurate and point forwards and backwards
-    return check_free_list_pointers();
     // 2. If I'm marked free, there are no free blocks beside me (fully coalesced)
     // 3. if I'm marked free, I'm in the proper free list
-    // 4. if I'm marked allocated, the blocks to my left and right also say i'm allocated
+    // 4. Ensure the number of blocks marked free in the heap is consistent with the number of blocks in the free list
+    return (check_coalesced_matching_frees() && check_proper_list() && check_free_list_pointers());
 }
 
 
@@ -936,9 +953,81 @@ int check_free_list_pointers() {
         linked_list_t *prev = NULL;
         while (curr != NULL) {
             if (curr->prev != prev) { return 0; }
+            if ((curr->size_alloc & 0x1) != 0) { return 0;}
             prev = curr;
             curr = curr->next;
         }
     }
     return 1;
+}
+
+/*********************************************************
+ * check_coalesced_matching_frees
+ * Traverses all the free lists and checks the blocks
+ * before and after the free block in the heap is not free
+ * Also keeps count of the number of free blocks in the
+ * lists and compares it to the number of blocks marked
+ * as free in the heap
+ * Returns 1 if consistent, 0 otherwise
+ ********************************************************/
+int check_coalesced_matching_frees() {
+    int total_free_list = 0;
+    void *prev_blk, *next_blk;
+    for (int i = 0; i < FREE_LIST_SIZE; ++i) {
+        linked_list_t *curr = free_list[i];
+        while (curr != NULL) {
+            // increment the number of free blocks in the list
+            if (curr->size_alloc & 0x1) { total_free_list++; }
+            // check previous block in heap
+            prev_blk = PREV_BLKP(&(curr->next));
+            if (!GET_ALLOC(HDRP(prev_blk))) { return 0; }
+            // check next block in heap
+            next_blk = NEXT_BLKP(&(curr->next));
+            if (!GET_ALLOC(HDRP(next_blk))) { return 0; }
+
+            curr = curr->next;
+        }
+    }
+
+    // check to see if the number of free blocks in list
+    // is correctly marked in the heap as unallocated
+    if (total_free_list != traverse_heap_total_free()) { return 0; }
+    return 1;
+}
+
+
+/*********************************************************
+ * check_proper_list
+ * Traverses all the free lists and checks the blocks
+ * have the correct free list index
+ * Returns 1 if correct, 0 otherwise
+ ********************************************************/
+int check_proper_list() {
+    for (int i = 0; i < FREE_LIST_SIZE; ++i) {
+        linked_list_t *curr = free_list[i];
+        while (curr != NULL) {
+            if (get_list_index(curr->size_alloc) != i) { return 0; }
+            curr = curr->next;
+        }
+    }
+    return 1;
+}
+
+/*********************************************************
+ * traverse_heap_total_free
+ * go thru the full heap
+ * for each block, check if header is equal to footer
+ * return 0 if any header isn't equal to the footer
+ * for free blocks, increment total_free_heap by 1
+ * returns the total number of free blocks in the heap
+ ********************************************************/
+int traverse_heap_total_free() {
+    void *p = heap_listp;
+    int total_free_heap = 0;
+    while(p != NULL) {
+        if (GET(HDRP(p)) != GET(FTRP(p))) { return 0; }
+        if (!GET_ALLOC(FTRP(p))) { total_free_heap++; }
+        p = (void *)NEXT_BLKP(p);
+    }
+    return total_free_heap;
 }
