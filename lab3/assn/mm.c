@@ -967,7 +967,7 @@ int check_free_list_pointers() {
  * before and after the free block in the heap is not free
  * Also keeps count of the number of free blocks in the
  * lists and compares it to the number of blocks marked
- * as free in the heap
+ * as free in the hea p
  * Returns 1 if consistent, 0 otherwise
  ********************************************************/
 int check_coalesced_matching_frees() {
@@ -980,10 +980,20 @@ int check_coalesced_matching_frees() {
             if (curr->size_alloc & 0x1) { total_free_list++; }
             // check previous block in heap
             prev_blk = PREV_BLKP(&(curr->next));
-            if (!GET_ALLOC(HDRP(prev_blk))) { return 0; }
+            if (!GET_ALLOC(HDRP(prev_blk))) {
+                #ifdef DEBUG
+                printf("Error: previous block is free and should have been coalesced\n");
+                #endif
+                return 0;
+            }
             // check next block in heap
             next_blk = NEXT_BLKP(&(curr->next));
-            if (!GET_ALLOC(HDRP(next_blk))) { return 0; }
+            if (!GET_ALLOC(HDRP(next_blk))) {
+                #ifdef DEBUG
+                printf("Error: next block is free and should have been coalesced\n");
+                #endif
+                return 0;
+            }
 
             curr = curr->next;
         }
@@ -991,7 +1001,12 @@ int check_coalesced_matching_frees() {
 
     // check to see if the number of free blocks in list
     // is correctly marked in the heap as unallocated
-    if (total_free_list != traverse_heap_total_free()) { return 0; }
+    if (total_free_list != traverse_heap_total_free()) {
+        #ifdef DEBUG
+        printf("Error: number of free blocks in heap is different from number of blocks in free list\n");
+        #endif
+        return 0;
+    }
     return 1;
 }
 
@@ -1006,7 +1021,12 @@ int check_proper_list() {
     for (int i = 0; i < FREE_LIST_SIZE; ++i) {
         linked_list_t *curr = free_list[i];
         while (curr != NULL) {
-            if (get_list_index(curr->size_alloc) != i) { return 0; }
+            if (get_list_index(curr->size_alloc) != i) {
+                #ifdef DEBUG
+                printf("Error: free block is not in correct list index\n");
+                #endif
+                return 0;
+            }
             curr = curr->next;
         }
     }
@@ -1025,7 +1045,12 @@ int traverse_heap_total_free() {
     void *p = heap_listp;
     int total_free_heap = 0;
     while(p != NULL) {
-        if (GET(HDRP(p)) != GET(FTRP(p))) { return 0; }
+        if (GET(HDRP(p)) != GET(FTRP(p))) {
+        #ifdef DEBUG
+        printf("Error: information in header is different from information in footer\n");
+        #endif
+        return 0;
+        }
         if (!GET_ALLOC(FTRP(p))) { total_free_heap++; }
         p = (void *)NEXT_BLKP(p);
     }
