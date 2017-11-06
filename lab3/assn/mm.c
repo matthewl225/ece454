@@ -766,9 +766,6 @@ void *mm_realloc(void *ptr, size_t size)
             DEBUG_PRINTF("\tReturning %p, size %ld and %ld\n", newptr, GET(HDRP(newptr)), GET(FTRP(newptr)));
             DEBUG_ASSERT(mm_check() != 0);
             return newptr;
-            // combine then split_block
-            // memmove required
-            // return prev_blkp;
         }
     }
     #endif
