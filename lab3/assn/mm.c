@@ -102,10 +102,9 @@ team_t team = {
  * You are not required to use these macros but may find them helpful.
 *************************************************************************/
 
+// #define TRY_REALLOC_LEFT
 // #define DEBUG
 // #define PRINT_FREE_LISTS
-// #define TRY_REALLOC_LEFT
-// #define CHECK_HEAP_CONST
 
 #define WSIZE         sizeof(void *)            /* word size (bytes) */
 #define OVERHEAD      WSIZE
@@ -136,6 +135,20 @@ team_t team = {
 #define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
+/* Debugging Macros */
+#ifdef DEBUG
+    #define DEBUG_PRINTF(...) printf(__VA_ARGS__)
+    #define DEBUG_ASSERT(x) assert(x)
+    #ifdef PRINT_FREE_LISTS
+        #define DEBUG_PRINT_FREE_LISTS() print_free_lists()
+    #endif
+#else
+    #define DEBUG_PRINTF(...)
+    #define DEBUG_ASSERT(x)
+    #define DEBUG_PRINT_FREE_LISTS()
+#endif
+
+
 #define FREE_LIST_SIZE 30
 void *heap_listp = NULL;
 void *heap_epilogue_hdrp = NULL;
@@ -163,9 +176,7 @@ int mm_check(void);
  **********************************************************/
 int mm_init(void)
 {
-    #ifdef DEBUG
-    printf("************************MM INIT************************\n");
-    #endif
+    DEBUG_PRINTF("************************MM INIT************************\n");
     if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1) {
         return -1;
     }
@@ -173,21 +184,13 @@ int mm_init(void)
 
     PUT(heap_listp, 0);                         // alignment padding
     PUT(heap_listp + WSIZE, PACK(DSIZE, 1));   // prologue header
-    #ifdef DEBUG
-    printf("Prologue header is %p\n", heap_listp + WSIZE);
-    #endif
+    DEBUG_PRINTF("Prologue header is %p\n", heap_listp + WSIZE);
     PUT(heap_listp + 2*WSIZE, PACK(DSIZE, 1));   // prologue footer
-    #ifdef DEBUG
-    printf("Prologue footer is %p\n", heap_listp + 2*WSIZE);
-    #endif
+    DEBUG_PRINTF("Prologue footer is %p\n", heap_listp + 2*WSIZE);
     PUT(heap_epilogue_hdrp, PACK(0, 1));    // epilogue header, size = number of bytes
-    #ifdef DEBUG
-    printf("Epilogue header is %p\n", heap_listp + 3*WSIZE);
-    #endif
+    DEBUG_PRINTF("Epilogue header is %p\n", heap_listp + 3*WSIZE);
     heap_listp += DSIZE;
-    #ifdef PRINT_FREE_LISTS
-    print_free_lists();
-    #endif
+    DEBUG_PRINT_FREE_LISTS();
     // Set all free lists as empty
     for (int i = 0; i < FREE_LIST_SIZE; ++i) {
         free_list[i] = NULL;
@@ -306,9 +309,7 @@ size_t get_list_index(size_t size)
             }
         }
     }
-    #ifdef DEBUG
-    printf("\tFound list index %ld\n", result);
-    #endif
+    DEBUG_PRINTF("\tFound list index %ld\n", result);
     return result;
 }
 
@@ -321,9 +322,7 @@ size_t get_list_index(size_t size)
  **********************************************************/
 void *sorted_list_insert(void *free_list, void *bp, size_t size)
 {
-    #ifdef DEBUG
-    printf("\tInserting bp %p, size %ld into freelist %p\n", bp, size, free_list);
-    #endif
+    DEBUG_PRINTF("\tInserting bp %p, size %ld into freelist %p\n", bp, size, free_list);
     linked_list_t *ll_bp = (linked_list_t*)HDRP(bp);
     // insert at the front if list is empty
     if (free_list == NULL) {
@@ -335,19 +334,13 @@ void *sorted_list_insert(void *free_list, void *bp, size_t size)
     linked_list_t *current = (linked_list_t *)free_list;
     linked_list_t *prev = NULL;
     // look for two nodes where prev->size < size < next->size
-    #ifdef DEBUG
-    printf("\t1. Current = %p prev = %p ll_bp = %p\n", current, prev, ll_bp);
-    #endif
+    DEBUG_PRINTF("\t1. Current = %p prev = %p ll_bp = %p\n", current, prev, ll_bp);
     while (current != NULL && current->size_alloc < size) {
         prev = current;
         current = current->next;
-        #ifdef DEBUG
-        printf("\tCurrent = %p prev = %p\n", current, prev);
-        #endif
+        DEBUG_PRINTF("\tCurrent = %p prev = %p\n", current, prev);
     }
-    #ifdef DEBUG
-    printf("\t2. Current = %p prev = %p ll_bp = %p\n", current, prev, ll_bp);
-    #endif
+    DEBUG_PRINTF("\t2. Current = %p prev = %p ll_bp = %p\n", current, prev, ll_bp);
     ll_bp->next = current;
     ll_bp->prev = prev;
     if (current) current->prev = ll_bp; // back pointer
@@ -365,12 +358,10 @@ void *sorted_list_insert(void *free_list, void *bp, size_t size)
  **********************************************************/
 void sorted_list_remove(size_t free_list_index, void *hdrp_bp)
 {
-    #ifdef DEBUG
-    printf("\tRemoving %p from freelist %p\n", hdrp_bp, free_list[free_list_index]);
+    DEBUG_PRINTF("\tRemoving %p from freelist %p\n", hdrp_bp, free_list[free_list_index]);
     #ifdef PRINT_FREE_LISTS
-    printf("Before ");
-    print_free_lists();
-    #endif
+    DEBUG_PRINTF("Before ");
+    DEBUG_PRINT_FREE_LISTS();
     #endif
 
     linked_list_t *ll_bp = (linked_list_t *)hdrp_bp;
@@ -386,8 +377,8 @@ void sorted_list_remove(size_t free_list_index, void *hdrp_bp)
         free_list[free_list_index] = next; // bp was the first node
     }
     #ifdef PRINT_FREE_LISTS
-    printf("After ");
-    print_free_lists();
+    DEBUG_PRINTF("After ");
+    DEBUG_PRINT_FREE_LISTS();
     #endif
 }
 
@@ -407,17 +398,13 @@ void *split_block(void *bp, const size_t adjusted_req_size)
     size_t remainder_size = current_size - adjusted_req_size;
     size_t remainder_size_index = get_list_index(remainder_size);
 
-    #ifdef DEBUG
-    printf("\tIf we split this block into at least 1 block of %ld, we'd have a remainder of %ld(%ld)\n", adjusted_req_size, remainder_size, remainder_size_index);
-    #endif
+    DEBUG_PRINTF("\tIf we split this block into at least 1 block of %ld, we'd have a remainder of %ld(%ld)\n", adjusted_req_size, remainder_size, remainder_size_index);
     // well sized. Don't split blocks if we are just going to return
     // one huge block and insert one relatively tiny block into the free list
     // therefore, if the index of the remainder is less than half the current
     // size's index, don't bother splitting
     if (((remainder_size_index << 2) < current_size_index) || (remainder_size < 31)) {
-        #ifdef DEBUG
-        printf("\t**Too Small, don't split\n");
-        #endif
+        DEBUG_PRINTF("\t**Too Small, don't split\n");
         return bp;
     }
 
@@ -430,12 +417,8 @@ void *split_block(void *bp, const size_t adjusted_req_size)
     PUT(FTRP(new_block), PACK(remainder_size, 0));
     free_list[remainder_size_index] = sorted_list_insert(free_list[remainder_size_index], new_block, remainder_size);
 
-    #ifdef DEBUG
-    printf("\tSplit block of size %ld(idx %ld) into two blocks of size %ld(idx %ld) and %ld(idx %ld)\n", current_size, current_size_index, adjusted_req_size, get_list_index(adjusted_req_size), remainder_size, remainder_size_index);
-    #ifdef PRINT_FREE_LISTS
-    print_free_lists();
-    #endif
-    #endif
+    DEBUG_PRINTF("\tSplit block of size %ld(idx %ld) into two blocks of size %ld(idx %ld) and %ld(idx %ld)\n", current_size, current_size_index, adjusted_req_size, get_list_index(adjusted_req_size), remainder_size, remainder_size_index);
+    DEBUG_PRINT_FREE_LISTS();
 
     return bp;
 }
@@ -464,18 +447,14 @@ void *coalesce(void *bp)
     /* Case 1 */
     if (prev_alloc && next_alloc) {
         list_index = get_list_index(size);
-        #ifdef DEBUG
-        printf("\tNothing to coalesce, prev: %p curr: %p next: %p\n",prev_blkp, bp, next_blkp);
-        #endif
+        DEBUG_PRINTF("\tNothing to coalesce, prev: %p curr: %p next: %p\n",prev_blkp, bp, next_blkp);
         free_list[list_index] = sorted_list_insert(free_list[list_index], bp, size);
         return bp;
     }
 
     /* Case 2 */
     else if (prev_alloc && !next_alloc) {
-        #ifdef DEBUG
-        printf("Coalescing right, combining %p and %p\n", bp, next_blkp);
-        #endif
+        DEBUG_PRINTF("Coalescing right, combining %p and %p\n", bp, next_blkp);
         // remove next_blkp from free list
         temp_size = GET_SIZE(HDRP(next_blkp));
         list_index = get_list_index(temp_size);
@@ -492,9 +471,7 @@ void *coalesce(void *bp)
     /* Case 3 */
     else if (!prev_alloc && next_alloc) {
         // remove prev_blkp from free list
-        #ifdef DEBUG
-        printf("Coalescing left, combining %p and %p\n", prev_blkp, bp);
-        #endif
+        DEBUG_PRINTF("Coalescing left, combining %p and %p\n", prev_blkp, bp);
         temp_size = GET_SIZE(HDRP(prev_blkp));
         list_index = get_list_index(temp_size);
         sorted_list_remove(list_index, HDRP(prev_blkp));
@@ -511,9 +488,7 @@ void *coalesce(void *bp)
     /* Case 4 */
     else {
         // 3 blocks need 6 tags, 1 block need 2 tags therefore add 4 tags to the block size
-        #ifdef DEBUG
-        printf("Coalescing left and right, combining %p, %p and %p\n", prev_blkp, bp, next_blkp);
-        #endif
+        DEBUG_PRINTF("Coalescing left and right, combining %p, %p and %p\n", prev_blkp, bp, next_blkp);
 
         // remove the previous block from its free list
         temp_size = GET_SIZE(HDRP(prev_blkp));
@@ -543,30 +518,22 @@ void *coalesce(void *bp)
  **********************************************************/
 void *extend_heap(size_t size_16)
 {
-    #ifdef DEBUG
-    printf("\tExtending heap by %ld bytes\n", size_16);
-    assert((size_16 % 16) == 0);
-    #endif
+    DEBUG_PRINTF("\tExtending heap by %ld bytes\n", size_16);
+    DEBUG_ASSERT((size_16 % 16) == 0);
     char *bp;
 
     /* Allocate an even number of words to maintain alignments */
     if ( (bp = mem_sbrk(size_16)) == (void *)-1 )
         return NULL;
-    #ifdef DEBUG
-    printf("\tsbrk'd bp is %p\n", bp);
-    #endif
+    DEBUG_PRINTF("\tsbrk'd bp is %p\n", bp);
 
 
     /* Coalesce left if the previous block was free */
     char *prev_blkp = PREV_BLKP(bp);
     size_t prev_alloc = GET_ALLOC(HDRP(prev_blkp));
-    #ifdef DEBUG
-    printf("\tPrevious blkp is %p and ", prev_blkp);
-    #endif
+    DEBUG_PRINTF("\tPrevious blkp is %p and ", prev_blkp);
     if (!prev_alloc) {
-        #ifdef DEBUG
-        printf("is not allocated\n");
-        #endif
+        DEBUG_PRINTF("is not allocated\n");
         // remove the previous block from the free list
         size_t extra_size = GET_SIZE(HDRP(prev_blkp));
         size_t list_index = get_list_index(extra_size);
@@ -575,22 +542,16 @@ void *extend_heap(size_t size_16)
         size_16 += extra_size;
         bp = prev_blkp;
     } else {
-        #ifdef DEBUG
-        printf("is allocated\n");
-        #endif
+        DEBUG_PRINTF("is allocated\n");
     }
     /* Initialize free block header/footer */
-    #ifdef DEBUG
-    printf("\tNew freeblock size is %ld\n", size_16);
-    #endif
+    DEBUG_PRINTF("\tNew freeblock size is %ld\n", size_16);
     PUT(HDRP(bp), PACK(size_16, 0));
     PUT(FTRP(bp), PACK(size_16, 0));
     /* Initialize the epilogue header */
     heap_epilogue_hdrp = HDRP(NEXT_BLKP(bp));
     PUT(heap_epilogue_hdrp, PACK(0, 1));
-    #ifdef DEBUG
-    printf("\t**New epilogue header is %p\n", HDRP(NEXT_BLKP(bp)));
-    #endif
+    DEBUG_PRINTF("\t**New epilogue header is %p\n", HDRP(NEXT_BLKP(bp)));
     return bp;
 }
 
@@ -603,9 +564,7 @@ void *extend_heap(size_t size_16)
  **********************************************************/
 void *find_fit(const size_t fl_index, size_t asize)
 {
-    #ifdef DEBUG
-    printf("\tLooking for asize %ld in free_list %p\n", asize, free_list[fl_index]);
-    #endif
+    DEBUG_PRINTF("\tLooking for asize %ld in free_list %p\n", asize, free_list[fl_index]);
     // the free list is sorted by size then by memory address, therefore the first block that fits at least asize is the best fit
     linked_list_t *curr = (linked_list_t *)free_list[fl_index];
     linked_list_t *prev = NULL;
@@ -632,9 +591,7 @@ void *find_fit(const size_t fl_index, size_t asize)
  **********************************************************/
 void mm_free(void *bp)
 {
-    #ifdef DEBUG
-    printf("Freeing %p\n", bp);
-    #endif
+    DEBUG_PRINTF("Freeing %p\n", bp);
     if(bp == NULL){
       return;
     }
@@ -643,12 +600,8 @@ void mm_free(void *bp)
     PUT(HDRP(bp), PACK(size,0));
     PUT(FTRP(bp), PACK(size,0));
     coalesce(bp);
-    #ifdef PRINT_FREE_LISTS
-    print_free_lists();
-    #endif
-    #ifdef CHECK_HEAP_CONST
-    assert(mm_check() != 0);
-    #endif
+    DEBUG_PRINT_FREE_LISTS();
+    DEBUG_ASSERT(mm_check() != 0);
 }
 
 /**********************************************************
@@ -660,17 +613,13 @@ void mm_free(void *bp)
  **********************************************************/
 void *mm_malloc(size_t size)
 {
-    #ifdef DEBUG
-    printf("Malloc'ing %ld bytes\n", size);
-    #endif
+    DEBUG_PRINTF("Malloc'ing %ld bytes\n", size);
     size_t asize; /* adjusted block size */
     char * bp = NULL;
 
     /* Ignore spurious requests */
     if (size == 0) {
-        #ifdef DEBUG
-        printf("\tReturning NULL\n");
-        #endif
+        DEBUG_PRINTF("\tReturning NULL\n");
         return NULL;
     }
 
@@ -678,9 +627,7 @@ void *mm_malloc(size_t size)
     size += (OVERHEAD << 1);
     size_t list_index = get_list_index(size);
     asize = get_bucket_size(list_index, size);
-    #ifdef DEBUG
-    printf("\tAdjusted to %ld bytes\n", asize);
-    #endif
+    DEBUG_PRINTF("\tAdjusted to %ld bytes\n", asize);
     // Search the free lists for a block which will fit the required size
     for (; list_index < FREE_LIST_SIZE && bp == NULL; ++list_index) {
         if (free_list[list_index])
@@ -691,40 +638,28 @@ void *mm_malloc(size_t size)
         // extend heap and set found_bp to new block
         size_t free_heap_size = 0;
         size_t heap_chunk_size_alloc = GET(heap_epilogue_hdrp - OVERHEAD);
-        #ifdef DEBUG
-        printf("\tHeap Chunk FTRP: %p\n", heap_epilogue_hdrp - OVERHEAD);
-        #endif
+        DEBUG_PRINTF("\tHeap Chunk FTRP: %p\n", heap_epilogue_hdrp - OVERHEAD);
         if (!(heap_chunk_size_alloc & 0x1)) {
             free_heap_size = heap_chunk_size_alloc & (~DSIZE - 1);
         }
-        #ifdef DEBUG
-        printf("\tCurrent free heap size is %ld\n", free_heap_size);
-        #endif
+        DEBUG_PRINTF("\tCurrent free heap size is %ld\n", free_heap_size);
         bp = extend_heap(MAX(asize - free_heap_size, CHUNKSIZE));// we are always going to extend the heap by at least CHUNKSIZE bytes to reduce calls to sbrk
         // if extend fails, return null
         if (!bp) {
-            #ifdef DEBUG
-            printf("\tReturning NULL\n");
-            #endif
+            DEBUG_PRINTF("\tReturning NULL\n");
             return NULL;
         }
     }
     // split the block if the found block is too large for a reasonable return size
     bp = split_block(bp, asize);
-    #ifdef DEBUG
-    printf("\tFound bp %p, size %ld\n", bp, GET_SIZE(HDRP(bp)));
-    #endif
+    DEBUG_PRINTF("\tFound bp %p, size %ld\n", bp, GET_SIZE(HDRP(bp)));
 
     // Allocate and set the size of the block and return it to the caller
     asize = GET_SIZE(HDRP(bp));
     PUT(HDRP(bp), PACK(asize, 1));
     PUT(FTRP(bp), PACK(asize, 1));
-    #ifdef DEBUG
-    printf("\tReturning %p\n", bp);
-    #endif
-    #ifdef CHECK_HEAP_CONST
-    assert(mm_check() != 0);
-    #endif
+    DEBUG_PRINTF("\tReturning %p\n", bp);
+    DEBUG_ASSERT(mm_check() != 0);
     return bp;
 }
 
@@ -755,9 +690,7 @@ void *mm_malloc(size_t size)
  *********************************************************/
 void *mm_realloc(void *ptr, size_t size)
 {
-    #ifdef DEBUG
-    printf("Realloc'ing %p to %ld bytes\n", ptr, size);
-    #endif
+    DEBUG_PRINTF("Realloc'ing %p to %ld bytes\n", ptr, size);
 
     /* If size == 0 then this is just free, and we return NULL. */
     if(size == 0){
@@ -775,9 +708,7 @@ void *mm_realloc(void *ptr, size_t size)
     size = (size+OVERHEAD*2 + 0xF) & ~0xF; // multiple of 16
 
     if (size <= copySize) {
-        #ifdef DEBUG
-        printf("\tRequired size of %ld already fits in current size %ld\n", size+OVERHEAD*2, copySize);
-        #endif
+        DEBUG_PRINTF("\tRequired size of %ld already fits in current size %ld\n", size+OVERHEAD*2, copySize);
         // TODO: possibly shrink this allocated chunk, no tests do this so maybe lab4?
         return oldptr;
     }
@@ -791,27 +722,25 @@ void *mm_realloc(void *ptr, size_t size)
     size_t prev_size_alloc = GET(HDRP(prev_blkp));
     size_t left_size = prev_size_alloc & ~(DSIZE_MINUS_1);
     #endif
-    #ifdef DEBUG
-    printf("\tNext Block: %p : Size: %ld Allocated: ", next_blkp, next_size_alloc & ~0x1);
+    DEBUG_PRINTF("\tNext Block: %p : Size: %ld Allocated: ", next_blkp, next_size_alloc & ~0x1);
     if (GET_ALLOC(HDRP(next_blkp))) {
-        printf("Yes\n");
+        DEBUG_PRINTF("Yes\n");
     } else {
-        printf("No\n");
+        DEBUG_PRINTF("No\n");
     }
     #ifdef TRY_REALLOC_LEFT
-    printf("\tPrev Block: %p : Size: %ld Allocated: ", prev_blkp, prev_size_alloc & ~0x1);
+    #ifdef DEBUG
+    DEBUG_PRINTF("\tPrev Block: %p : Size: %ld Allocated: ", prev_blkp, prev_size_alloc & ~0x1);
     if (GET_ALLOC(HDRP(prev_blkp))) {
-        printf("Yes\n");
+        DEBUG_PRINTF("Yes\n");
     } else {
-        printf("No\n");
+        DEBUG_PRINTF("No\n");
     }
     #endif
     #endif
     if (!(next_size_alloc & 0x1)) { // next block isn't allocated
         if (right_size >= extra_size_needed) {
-            #ifdef DEBUG
-            printf("\tExpanding right\n");
-            #endif
+            DEBUG_PRINTF("\tExpanding right\n");
             // expand into right block
             sorted_list_remove(get_list_index(right_size), HDRP(next_blkp));
             // PUT(FTRP(next_blkp), PACK(copySize + right_size, 0));
@@ -820,26 +749,20 @@ void *mm_realloc(void *ptr, size_t size)
             // no copy needed
             newptr = split_block(oldptr, size);
             PUT(FTRP(newptr), GET(HDRP(newptr)));
-            #ifdef CHECK_HEAP_CONST
-            assert(mm_check() != 0);
-            #endif
+            DEBUG_ASSERT(mm_check() != 0);
             return newptr;
         } 
         #ifdef TRY_REALLOC_LEFT
         else if (!(prev_size_alloc & 0x1)) { // both right and left are free
             if (left_size >= extra_size_needed) { // just left is enough
-                #ifdef DEBUG
-                printf("\tExpanding left1\n");
-                #endif
+                DEBUG_PRINTF("\tExpanding left1\n");
                 // expand into left block
                 sorted_list_remove(get_list_index(left_size), HDRP(prev_blkp));
                 // memmove required
                 // combine then split_block
                 // return prev_blkp;
             } else if ((left_size + right_size) >= extra_size_needed) {
-                #ifdef DEBUG
-                printf("\tExpanding left and right\n");
-                #endif
+                DEBUG_PRINTF("\tExpanding left and right\n");
                 // expand into both right and left block
                 // combine then split_block
                 // memmove required
@@ -851,21 +774,15 @@ void *mm_realloc(void *ptr, size_t size)
     #ifdef TRY_REALLOC_LEFT
     else if (!(prev_size_alloc & 0x1)) { // prev block isn't allocated but next block is
         if (left_size >= extra_size_needed && extra_size_needed < 33) { // just left is enough, but we also need a decent amount of memory
-            #ifdef DEBUG
-            printf("\tExpanding left2 for %ld bytes\n", extra_size_needed);
-            #endif
+            DEBUG_PRINTF("\tExpanding left2 for %ld bytes\n", extra_size_needed);
             // expand into left block
             sorted_list_remove(get_list_index(left_size), HDRP(prev_blkp));
             PUT(HDRP(prev_blkp), PACK(left_size + copySize, 1));
             memmove(prev_blkp, oldptr, copySize);
             newptr = split_block(prev_blkp, size);
             PUT(FTRP(newptr), GET(HDRP(newptr)));
-            #ifdef DEBUG
-            printf("\tReturning %p, size %ld and %ld\n", newptr, GET(HDRP(newptr)), GET(FTRP(newptr)));
-            #endif
-            #ifdef CHECK_HEAP_CONST
-            assert(mm_check() != 0);
-            #endif
+            DEBUG_PRINTF("\tReturning %p, size %ld and %ld\n", newptr, GET(HDRP(newptr)), GET(FTRP(newptr)));
+            DEBUG_ASSERT(mm_check() != 0);
             return newptr;
             // combine then split_block
             // memmove required
@@ -877,9 +794,7 @@ void *mm_realloc(void *ptr, size_t size)
     if (HDRP(next_blkp) == heap_epilogue_hdrp) {
         if (extend_heap(extra_size_needed)) {
             // we can now expand right
-            #ifdef DEBUG
-            printf("\tExtended heap to accommodate realloc\n");
-            #endif
+            DEBUG_PRINTF("\tExtended heap to accommodate realloc\n");
             PUT(old_hdrp, PACK(size, 1));
             PUT(FTRP(oldptr), PACK(size, 1));
             return oldptr;
@@ -896,11 +811,9 @@ void *mm_realloc(void *ptr, size_t size)
     if (newptr == NULL) {
         return NULL;
     }
-    #ifdef DEBUG
-    printf("\tCannot expand, malloc'd %p size %ld, free'd %p\n", newptr, GET_SIZE(HDRP(newptr)), oldptr);
+    DEBUG_PRINTF("\tCannot expand, malloc'd %p size %ld, free'd %p\n", newptr, GET_SIZE(HDRP(newptr)), oldptr);
 
-    printf("\tCopying %p to %p, %ld bytes\n", oldptr, newptr, copySize);
-    #endif
+    DEBUG_PRINTF("\tCopying %p to %p, %ld bytes\n", oldptr, newptr, copySize);
     memcpy(newptr, oldptr, copySize);
     mm_free(oldptr);
     return newptr;
@@ -928,15 +841,15 @@ int mm_check(void){
  * the free_list pointer array
  *********************************************************/
 void print_free_lists() {
-    printf("Free Lists: \n");
+    DEBUG_PRINTF("Free Lists: \n");
     for (int i = 0; i < FREE_LIST_SIZE; ++i) {
-        printf("\t[%d] ", i);
+        DEBUG_PRINTF("\t[%d] ", i);
         linked_list_t *curr = free_list[i];
         while (curr != NULL) {
-            printf("%p(%ld) <-> ", curr, curr->size_alloc);
+            DEBUG_PRINTF("%p(%ld) <-> ", curr, curr->size_alloc);
             curr = curr->next;
         }
-        printf("NULL\n");
+        DEBUG_PRINTF("NULL\n");
     }
 }
 
@@ -981,17 +894,13 @@ int check_coalesced_matching_frees() {
             // check previous block in heap
             prev_blk = PREV_BLKP(&(curr->next));
             if (!GET_ALLOC(HDRP(prev_blk))) {
-                #ifdef DEBUG
-                printf("Error: previous block is free and should have been coalesced\n");
-                #endif
+                DEBUG_PRINTF("Error: previous block is free and should have been coalesced\n");
                 return 0;
             }
             // check next block in heap
             next_blk = NEXT_BLKP(&(curr->next));
             if (!GET_ALLOC(HDRP(next_blk))) {
-                #ifdef DEBUG
-                printf("Error: next block is free and should have been coalesced\n");
-                #endif
+                DEBUG_PRINTF("Error: next block is free and should have been coalesced\n");
                 return 0;
             }
 
@@ -1002,9 +911,7 @@ int check_coalesced_matching_frees() {
     // check to see if the number of free blocks in list
     // is correctly marked in the heap as unallocated
     if (total_free_list != traverse_heap_total_free()) {
-        #ifdef DEBUG
-        printf("Error: number of free blocks in heap is different from number of blocks in free list\n");
-        #endif
+        DEBUG_PRINTF("Error: number of free blocks in heap is different from number of blocks in free list\n");
         return 0;
     }
     return 1;
@@ -1022,9 +929,7 @@ int check_proper_list() {
         linked_list_t *curr = free_list[i];
         while (curr != NULL) {
             if (get_list_index(curr->size_alloc) != i) {
-                #ifdef DEBUG
-                printf("Error: free block is not in correct list index\n");
-                #endif
+                DEBUG_PRINTF("Error: free block is not in correct list index\n");
                 return 0;
             }
             curr = curr->next;
@@ -1046,9 +951,7 @@ int traverse_heap_total_free() {
     int total_free_heap = 0;
     while(p != NULL) {
         if (GET(HDRP(p)) != GET(FTRP(p))) {
-        #ifdef DEBUG
-        printf("Error: information in header is different from information in footer\n");
-        #endif
+        DEBUG_PRINTF("Error: information in header is different from information in footer\n");
         return 0;
         }
         if (!GET_ALLOC(FTRP(p))) { total_free_heap++; }
