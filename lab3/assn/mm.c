@@ -752,24 +752,6 @@ void *mm_realloc(void *ptr, size_t size)
             DEBUG_ASSERT(mm_check() != 0);
             return newptr;
         } 
-        #ifdef TRY_REALLOC_LEFT
-        else if (!(prev_size_alloc & 0x1)) { // both right and left are free
-            if (left_size >= extra_size_needed) { // just left is enough
-                DEBUG_PRINTF("\tExpanding left1\n");
-                // expand into left block
-                sorted_list_remove(get_list_index(left_size), HDRP(prev_blkp));
-                // memmove required
-                // combine then split_block
-                // return prev_blkp;
-            } else if ((left_size + right_size) >= extra_size_needed) {
-                DEBUG_PRINTF("\tExpanding left and right\n");
-                // expand into both right and left block
-                // combine then split_block
-                // memmove required
-                // return prev_blkp;
-            }
-        }
-        #endif
     } 
     #ifdef TRY_REALLOC_LEFT
     else if (!(prev_size_alloc & 0x1)) { // prev block isn't allocated but next block is
