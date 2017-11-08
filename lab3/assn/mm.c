@@ -141,6 +141,8 @@ team_t team = {
     #define DEBUG_ASSERT(x) assert(x)
     #ifdef PRINT_FREE_LISTS
         #define DEBUG_PRINT_FREE_LISTS() print_free_lists()
+    #else
+        #define DEBUG_PRINT_FREE_LISTS()
     #endif
 #else
     #define DEBUG_PRINTF(...)
@@ -890,7 +892,7 @@ int check_coalesced_matching_frees() {
         linked_list_t *curr = free_list[i];
         while (curr != NULL) {
             // increment the number of free blocks in the list
-            if (curr->size_alloc & 0x1) { total_free_list++; }
+            if (!(curr->size_alloc & 0x1)) { total_free_list++; }
             // check previous block in heap
             prev_blk = PREV_BLKP(&(curr->next));
             if (!GET_ALLOC(HDRP(prev_blk))) {
@@ -910,8 +912,9 @@ int check_coalesced_matching_frees() {
 
     // check to see if the number of free blocks in list
     // is correctly marked in the heap as unallocated
-    if (total_free_list != traverse_heap_total_free()) {
-        DEBUG_PRINTF("Error: number of free blocks in heap is different from number of blocks in free list\n");
+    int num_free_in_heap = traverse_heap_total_free();
+    if (total_free_list != num_free_in_heap) {
+        DEBUG_PRINTF("Error: number of free blocks in heap (%d) is different from number of blocks in free list (%d)\n", num_free_in_heap, total_free_list);
         return 0;
     }
     return 1;
@@ -949,12 +952,15 @@ int check_proper_list() {
 int traverse_heap_total_free() {
     void *p = heap_listp;
     int total_free_heap = 0;
-    while(p != NULL) {
+    DEBUG_PRINTF("epilogue_hdrp = %p\n", heap_epilogue_hdrp);
+    while(p < heap_epilogue_hdrp) {
+        DEBUG_PRINTF("Checking heap pointer %p(%ld)\n", p, GET(HDRP(p)));
         if (GET(HDRP(p)) != GET(FTRP(p))) {
-        DEBUG_PRINTF("Error: information in header is different from information in footer\n");
-        return 0;
+            DEBUG_PRINTF("Error: information in header (%ld) is different from information in footer (%ld)\n", GET(p), GET(FTRP(p+OVERHEAD)));
+            DEBUG_ASSERT(GET(HDRP(p)) == GET(FTRP(p)));
+            return -1;
         }
-        if (!GET_ALLOC(FTRP(p))) { total_free_heap++; }
+        if (!GET_ALLOC(HDRP(p))) { total_free_heap++; }
         p = (void *)NEXT_BLKP(p);
     }
     return total_free_heap;
