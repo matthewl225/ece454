@@ -102,37 +102,7 @@ int traverse_heap_total_free();
 int check_proper_list();
 int mm_check(void);
 
-/**********************************************************
- * my_init
- * Initialize the heap, including "allocation" of the
- * prologue and epilogue. Also initialize all free lists to be empty.
- **********************************************************/
-int my_init(void)
-{
-    DEBUG_PRINTF("************************MM INIT************************\n");
-    mem_init();
-    if ((heap_listp = mem_sbrk(4*WSIZE)) == NULL) {
-        return -1;
-    }
-    heap_epilogue_hdrp = heap_listp + 3*WSIZE;
 
-    DEBUG_PRINTF("Got heap listp of %p\n", heap_listp);
-    PUT(heap_listp, 0);                         // alignment padding
-    PUT(heap_listp + WSIZE, PACK(DSIZE, 1));   // prologue header
-    DEBUG_PRINTF("Prologue header is %p\n", heap_listp + WSIZE);
-    PUT(heap_listp + 2*WSIZE, PACK(DSIZE, 1));   // prologue footer
-    DEBUG_PRINTF("Prologue footer is %p\n", heap_listp + 2*WSIZE);
-    PUT(heap_epilogue_hdrp, PACK(0, 1));    // epilogue header, size = number of bytes
-    DEBUG_PRINTF("Epilogue header is %p\n", heap_listp + 3*WSIZE);
-    heap_listp += DSIZE;
-    DEBUG_PRINT_FREE_LISTS();
-    // Set all free lists as empty
-    for (int i = 0; i < FREE_LIST_SIZE; ++i) {
-        free_list[i] = NULL;
-    }
-
-    return 0;
-}
 
 /**********************************************************
  * get_bucket_size
@@ -756,9 +726,36 @@ void *mm_realloc(void *ptr, size_t size)
 
 pthread_mutex_t malloc_lock = PTHREAD_MUTEX_INITIALIZER;
 
+/**********************************************************
+ * mm_init
+ * Initialize the heap, including "allocation" of the
+ * prologue and epilogue. Also initialize all free lists to be empty.
+ **********************************************************/
 int mm_init(void)
 {
-    return my_init();
+    DEBUG_PRINTF("************************MM INIT************************\n");
+    mem_init();
+    if ((heap_listp = mem_sbrk(4*WSIZE)) == NULL) {
+        return -1;
+    }
+    heap_epilogue_hdrp = heap_listp + 3*WSIZE;
+
+    DEBUG_PRINTF("Got heap listp of %p\n", heap_listp);
+    PUT(heap_listp, 0);                         // alignment padding
+    PUT(heap_listp + WSIZE, PACK(DSIZE, 1));   // prologue header
+    DEBUG_PRINTF("Prologue header is %p\n", heap_listp + WSIZE);
+    PUT(heap_listp + 2*WSIZE, PACK(DSIZE, 1));   // prologue footer
+    DEBUG_PRINTF("Prologue footer is %p\n", heap_listp + 2*WSIZE);
+    PUT(heap_epilogue_hdrp, PACK(0, 1));    // epilogue header, size = number of bytes
+    DEBUG_PRINTF("Epilogue header is %p\n", heap_listp + 3*WSIZE);
+    heap_listp += DSIZE;
+    DEBUG_PRINT_FREE_LISTS();
+    // Set all free lists as empty
+    for (int i = 0; i < FREE_LIST_SIZE; ++i) {
+        free_list[i] = NULL;
+    }
+
+    return 0;
 }
 
 void *
@@ -786,147 +783,4 @@ mm_free(void *ptr)
       my_free(ptr);
 	  pthread_mutex_unlock(&malloc_lock);
 	}
-}
-
-/**********************************************************
- * mm_check
- * Check the consistency of the memory heap
- * Return nonzero if the heap is consistent.
- *********************************************************/
-int mm_check(void){
-    // Probably something like iterating over all blocks and ensuring that:
-    // 1. Ensure my free list pointers are all accurate and point forwards and backwards
-    // 2. If I'm marked free, there are no free blocks beside me (fully coalesced)
-    // 3. if I'm marked free, I'm in the proper free list
-    // 4. Ensure the number of blocks marked free in the heap is consistent with the number of blocks in the free list
-    return (check_coalesced_matching_frees() && check_proper_list() && check_free_list_pointers());
-}
-
-
-/**********************************************************
- * print_free_lists
- * Print the contents of all free lists tracked by
- * the free_list pointer array
- *********************************************************/
-void print_free_lists() {
-    DEBUG_PRINTF("Free Lists: \n");
-    for (int i = 0; i < FREE_LIST_SIZE; ++i) {
-        DEBUG_PRINTF("\t[%d] ", i);
-        linked_list_t *curr = free_list[i];
-        while (curr != NULL) {
-            DEBUG_PRINTF("%p(%ld) <-> ", curr, curr->size_alloc);
-            curr = curr->next;
-        }
-        DEBUG_PRINTF("NULL\n");
-    }
-}
-
-/**********************************************************
- * check_free_list_pointers
- * Traverses all free lists and ensures that the next and 
- * pointers of all list elements are consistent with their
- * predecessors and successors
- * Returns 1 if consistent, 0 otherwise.
- *********************************************************/
-int check_free_list_pointers() {
-    for (int i = 0; i < FREE_LIST_SIZE; ++i) {
-        linked_list_t *curr = free_list[i];
-        linked_list_t *prev = NULL;
-        while (curr != NULL) {
-            if (curr->prev != prev) { return 0; }
-            if ((curr->size_alloc & 0x1) != 0) { return 0;}
-            prev = curr;
-            curr = curr->next;
-        }
-    }
-    return 1;
-}
-
-/*********************************************************
- * check_coalesced_matching_frees
- * Traverses all the free lists and checks the blocks
- * before and after the free block in the heap is not free
- * Also keeps count of the number of free blocks in the
- * lists and compares it to the number of blocks marked
- * as free in the hea p
- * Returns 1 if consistent, 0 otherwise
- ********************************************************/
-int check_coalesced_matching_frees() {
-    int total_free_list = 0;
-    void *prev_blk, *next_blk;
-    for (int i = 0; i < FREE_LIST_SIZE; ++i) {
-        linked_list_t *curr = free_list[i];
-        while (curr != NULL) {
-            // increment the number of free blocks in the list
-            if (!(curr->size_alloc & 0x1)) { total_free_list++; }
-            // check previous block in heap
-            prev_blk = PREV_BLKP(&(curr->next));
-            if (!GET_ALLOC(HDRP(prev_blk))) {
-                DEBUG_PRINTF("Error: previous block is free and should have been coalesced\n");
-                return 0;
-            }
-            // check next block in heap
-            next_blk = NEXT_BLKP(&(curr->next));
-            if (!GET_ALLOC(HDRP(next_blk))) {
-                DEBUG_PRINTF("Error: next block is free and should have been coalesced\n");
-                return 0;
-            }
-
-            curr = curr->next;
-        }
-    }
-
-    // check to see if the number of free blocks in list
-    // is correctly marked in the heap as unallocated
-    if (total_free_list != traverse_heap_total_free()) {
-        DEBUG_PRINTF("Error: number of free blocks in heap is different from number of blocks in free list\n");
-        return 0;
-    }
-    return 1;
-}
-
-
-/*********************************************************
- * check_proper_list
- * Traverses all the free lists and checks the blocks
- * have the correct free list index
- * Returns 1 if correct, 0 otherwise
- ********************************************************/
-int check_proper_list() {
-    for (int i = 0; i < FREE_LIST_SIZE; ++i) {
-        linked_list_t *curr = free_list[i];
-        while (curr != NULL) {
-            if (get_list_index(curr->size_alloc) != i) {
-                DEBUG_PRINTF("Error: free block is not in correct list index\n");
-                return 0;
-            }
-            curr = curr->next;
-        }
-    }
-    return 1;
-}
-
-/*********************************************************
- * traverse_heap_total_free
- * go thru the full heap
- * for each block, check if header is equal to footer
- * return 0 if any header isn't equal to the footer
- * for free blocks, increment total_free_heap by 1
- * returns the total number of free blocks in the heap
- ********************************************************/
-int traverse_heap_total_free() {
-    void *p = heap_listp;
-    int total_free_heap = 0;
-    DEBUG_PRINTF("epilogue_hdrp = %p\n", heap_epilogue_hdrp);
-    while(p < heap_epilogue_hdrp) {
-        DEBUG_PRINTF("Checking heap pointer %p(%ld)\n", p, GET(HDRP(p)));
-        if (GET(HDRP(p)) != GET(FTRP(p))) {
-            DEBUG_PRINTF("Error: information in header (%ld) is different from information in footer (%ld)\n", GET(p), GET(FTRP(p+OVERHEAD)));
-            DEBUG_ASSERT(GET(HDRP(p)) == GET(FTRP(p)));
-            return -1;
-        }
-        if (!GET_ALLOC(HDRP(p))) { total_free_heap++; }
-        p = (void *)NEXT_BLKP(p);
-    }
-    return total_free_heap;
 }
