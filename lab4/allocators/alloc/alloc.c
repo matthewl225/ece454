@@ -67,7 +67,13 @@ name_t myname = {
 
 /* Debugging Macros */
 #ifdef DEBUG
-    #define DEBUG_PRINTF(...) printf(__VA_ARGS__)
+    pthread_mutex_t printf_lock = PTHREAD_MUTEX_INITIALIZER;
+    #define DEBUG_PRINTF(...) { \
+        pthread_mutex_lock(&printf_lock); \
+        printf("Thread %d: ", gettid()); \
+        printf(__VA_ARGS__); \
+        pthread_mutex_unlock(&printf_lock); \
+    }
     #define DEBUG_ASSERT(x) assert(x)
     #ifdef PRINT_FREE_LISTS
         #define DEBUG_PRINT_FREE_LISTS() print_free_lists()
@@ -79,7 +85,6 @@ name_t myname = {
     #define DEBUG_ASSERT(x)
     #define DEBUG_PRINT_FREE_LISTS()
 #endif
-
 
 #define FREE_LIST_SIZE 30
 void *heap_listp = NULL;
@@ -110,6 +115,7 @@ int mm_check(void);
 size_t get_bucket_size(size_t list_index, size_t current_size) {
     size_t result;
     switch(list_index) {
+    // TODO make the min size 64 bytes
     case 0: result = 32; break;
     case 1: result = 48; break;
     case 2: result = 80; break;
@@ -155,6 +161,7 @@ size_t get_bucket_size(size_t list_index, size_t current_size) {
 size_t get_list_index(size_t size)
 {
     size_t result;
+    // TODO make the min size 64 bytes
     if (size < 15793) {
         if (size < 337) {
             if (size < 49) {
@@ -444,6 +451,8 @@ void *my_malloc(size_t size)
         // extend heap and set found_bp to new block
         size_t free_heap_size = 0;
         size_t heap_chunk_size_alloc = GET(heap_epilogue_hdrp - OVERHEAD);
+        // TODO: get a lock for this size, then double check we still have the right block
+            // if wrong, unlock and try again. Keep looping.
         DEBUG_PRINTF("\tHeap Chunk FTRP: %p\n", heap_epilogue_hdrp - OVERHEAD);
         if (!(heap_chunk_size_alloc & 0x1)) {
             free_heap_size = heap_chunk_size_alloc & (~DSIZE - 1);
@@ -504,7 +513,6 @@ int mm_init(void)
         free_list[i] = NULL;
         pthread_mutex_init(lock_list[i]);
     }
-
     return 0;
 }
 
