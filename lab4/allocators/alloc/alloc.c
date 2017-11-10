@@ -85,6 +85,7 @@ name_t myname = {
 void *heap_listp = NULL;
 void *heap_epilogue_hdrp = NULL;
 void *free_list[FREE_LIST_SIZE];
+pthread_mutex_t *lock_list[FREE_LIST_SIZE];
 
 /* Cast free_list entries to this struct for easier management */
 typedef struct linked_list {
@@ -308,6 +309,7 @@ void *split_block_unsafe(void *bp, const size_t adjusted_req_size)
         DEBUG_PRINTF("\t**Too Small, don't split\n");
         return bp;
     }
+    // TODO try lock, if failed, don't split
 
     // We will get a decent sized block from this split, so do it
     PUT(hdrp_bp, PACK(adjusted_req_size, bp_is_allocated));
@@ -429,6 +431,7 @@ void *my_malloc(size_t size)
 {
     DEBUG_PRINTF("Malloc'ing %ld bytes\n", size);
     size_t asize; /* adjusted block size */
+    pthread_mutex_t *current_lock = NULL;
     char * bp = NULL;
 
     /* Ignore spurious requests */
@@ -444,8 +447,14 @@ void *my_malloc(size_t size)
     DEBUG_PRINTF("\tAdjusted to %ld bytes\n", asize);
     // Search the free lists for a block which will fit the required size
     for (; list_index < FREE_LIST_SIZE && bp == NULL; ++list_index) {
-        if (free_list[list_index])
+        current_lock = lock_list[list_index];
+        pthread_mutex_lock(current_lock);
+        if (free_list[list_index]) {
             bp = find_fit_unsafe(list_index, asize);
+        }
+        if (!bp) {
+            pthread_mutex_unlock(current_lock);
+        }
     }
 
     // TODO need to protect this
@@ -467,6 +476,8 @@ void *my_malloc(size_t size)
     }
 
     // Assumption: we hold a lock on BP at this point
+    // TODO: mark as allocated and release lock. This way we know another thread cannot interfere with this block
+    // Also, we wont have to worry about split_block_unsafe causing a deadlock
     // split the block if the found block is too large for a reasonable return size
     bp = split_block_unsafe(bp, asize);
     DEBUG_PRINTF("\tFound bp %p, size %ld\n", bp, GET_SIZE(HDRP(bp)));
@@ -506,9 +517,10 @@ int mm_init(void)
     DEBUG_PRINTF("Epilogue header is %p\n", heap_listp + 3*WSIZE);
     heap_listp += DSIZE;
     DEBUG_PRINT_FREE_LISTS();
-    // Set all free lists as empty
+    // Set all free lists as empty and create their associated locks
     for (int i = 0; i < FREE_LIST_SIZE; ++i) {
         free_list[i] = NULL;
+        pthread_mutex_init(lock_list[i]);
     }
 
     return 0;
