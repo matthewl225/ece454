@@ -102,7 +102,6 @@ int check_proper_list();
 int mm_check(void);
 
 
-
 /**********************************************************
  * get_bucket_size
  * For a given list index, return its max size
@@ -217,14 +216,12 @@ size_t get_list_index(size_t size)
     return result;
 }
 
-
-
 /**********************************************************
- * sorted_list_insert
+ * sorted_list_insert_unsafe
  * insert the given block into the given list at the correct position
  * Note that the given bp must point to a payload.
  **********************************************************/
-void *sorted_list_insert(void *free_list, void *bp, size_t size)
+void *sorted_list_insert_unsafe(void *free_list, void *bp, size_t size)
 {
     DEBUG_PRINTF("\tInserting bp %p, size %ld into freelist %p\n", bp, size, free_list);
     linked_list_t *ll_bp = (linked_list_t*)HDRP(bp);
@@ -256,11 +253,11 @@ void *sorted_list_insert(void *free_list, void *bp, size_t size)
 }
 
 /**********************************************************
- * sorted_list_insert
+ * sorted_list_insert_unsafe
  * search the given list and remove the block which has a header
  * equal to the given hdrp_bp pointer
  **********************************************************/
-void sorted_list_remove(size_t free_list_index, void *hdrp_bp)
+void sorted_list_remove_unsafe(size_t free_list_index, void *hdrp_bp)
 {
     DEBUG_PRINTF("\tRemoving %p from freelist %p\n", hdrp_bp, free_list[free_list_index]);
     #ifdef PRINT_FREE_LISTS
@@ -287,13 +284,13 @@ void sorted_list_remove(size_t free_list_index, void *hdrp_bp)
 }
 
 /**********************************************************
- * split_block
+ * split_block_unsafe
  * given a block pointer and a required size, split the block
  * into a block which will fit the required size well, and a
  * block containing the remainder bytes which is inserted into the free list
  * The block which will fit the required size well is returned to the caller
  **********************************************************/
-void *split_block(void *bp, const size_t adjusted_req_size)
+void *split_block_unsafe(void *bp, const size_t adjusted_req_size)
 {
     void *hdrp_bp = HDRP(bp);
     char bp_is_allocated = GET_ALLOC(hdrp_bp);
@@ -319,7 +316,7 @@ void *split_block(void *bp, const size_t adjusted_req_size)
     void *new_block = NEXT_BLKP(bp);
     PUT(HDRP(new_block), PACK(remainder_size, 0));
     PUT(FTRP(new_block), PACK(remainder_size, 0));
-    free_list[remainder_size_index] = sorted_list_insert(free_list[remainder_size_index], new_block, remainder_size);
+    free_list[remainder_size_index] = sorted_list_insert_unsafe(free_list[remainder_size_index], new_block, remainder_size);
 
     DEBUG_PRINTF("\tSplit block of size %ld(idx %ld) into two blocks of size %ld(idx %ld) and %ld(idx %ld)\n", current_size, current_size_index, adjusted_req_size, get_list_index(adjusted_req_size), remainder_size, remainder_size_index);
     DEBUG_PRINT_FREE_LISTS();
@@ -328,99 +325,12 @@ void *split_block(void *bp, const size_t adjusted_req_size)
 }
 
 /**********************************************************
- * coalesce
- * Covers the 4 cases discussed in the text:
- * - both neighbours are allocated
- * - the next block is available for coalescing
- * - the previous block is available for coalescing
- * - both neighbours are available for coalescing
- * The resulting coalesced block is inserted into the 
- * appropriate free list and is also returned to the caller
- **********************************************************/
-void *coalesce(void *bp)
-{
-    char *prev_blkp = PREV_BLKP(bp);
-    char *next_blkp = NEXT_BLKP(bp);
-
-    size_t prev_alloc = GET_ALLOC(FTRP(prev_blkp));
-    size_t next_alloc = GET_ALLOC(HDRP(next_blkp));
-    size_t size = GET_SIZE(HDRP(bp));
-    size_t temp_size, list_index;
-
-
-    /* Case 1 */
-    if (prev_alloc && next_alloc) {
-        list_index = get_list_index(size);
-        DEBUG_PRINTF("\tNothing to coalesce, prev: %p curr: %p next: %p\n",prev_blkp, bp, next_blkp);
-        free_list[list_index] = sorted_list_insert(free_list[list_index], bp, size);
-        return bp;
-    }
-
-    /* Case 2 */
-    else if (prev_alloc && !next_alloc) {
-        DEBUG_PRINTF("Coalescing right, combining %p and %p\n", bp, next_blkp);
-        // remove next_blkp from free list
-        temp_size = GET_SIZE(HDRP(next_blkp));
-        list_index = get_list_index(temp_size);
-        sorted_list_remove(list_index, HDRP(next_blkp));
-
-        size += temp_size;
-        PUT(HDRP(bp), PACK(size, 0));
-        PUT(FTRP(bp), PACK(size, 0));
-        list_index = get_list_index(size);
-        free_list[list_index] = sorted_list_insert(free_list[list_index], bp, size);
-        return (bp);
-    }
-
-    /* Case 3 */
-    else if (!prev_alloc && next_alloc) {
-        // remove prev_blkp from free list
-        DEBUG_PRINTF("Coalescing left, combining %p and %p\n", prev_blkp, bp);
-        temp_size = GET_SIZE(HDRP(prev_blkp));
-        list_index = get_list_index(temp_size);
-        sorted_list_remove(list_index, HDRP(prev_blkp));
-
-        // two blocks need 4 tags, 1 block needs 2 tags therefore add 2 tags when coalescing
-        size += temp_size;
-        PUT(FTRP(bp), PACK(size, 0));
-        PUT(HDRP(prev_blkp), PACK(size, 0));
-        list_index = get_list_index(size);
-        free_list[list_index] = sorted_list_insert(free_list[list_index], prev_blkp, size);
-        return (prev_blkp);
-    }
-
-    /* Case 4 */
-    else {
-        // 3 blocks need 6 tags, 1 block need 2 tags therefore add 4 tags to the block size
-        DEBUG_PRINTF("Coalescing left and right, combining %p, %p and %p\n", prev_blkp, bp, next_blkp);
-
-        // remove the previous block from its free list
-        temp_size = GET_SIZE(HDRP(prev_blkp));
-        list_index = get_list_index(temp_size);
-        sorted_list_remove(list_index, HDRP(prev_blkp));
-
-        // remove the next block from its free list
-        temp_size = GET_SIZE(HDRP(next_blkp));
-        list_index = get_list_index(temp_size);
-        sorted_list_remove(list_index, HDRP(next_blkp));
-
-        // combine the 3 blocks and add it into its free list
-        size += GET_SIZE(HDRP(prev_blkp)) + temp_size;
-        PUT(HDRP(prev_blkp), PACK(size,0));
-        PUT(FTRP(prev_blkp), PACK(size,0));
-        list_index = get_list_index(size);
-        free_list[list_index] = sorted_list_insert(free_list[list_index], prev_blkp, size);
-        return (prev_blkp);
-    }
-}
-
-/**********************************************************
- * extend_heap
+ * extend_heap_unsafe
  * Extend the heap by "words" words, maintaining alignment
  * requirements of course. Free the former epilogue block
  * and reallocate its new header
  **********************************************************/
-void *extend_heap(size_t size_16)
+void *extend_heap_unsafe(size_t size_16)
 {
     DEBUG_PRINTF("\tExtending heap by %ld bytes\n", size_16);
     DEBUG_ASSERT((size_16 % 16) == 0);
@@ -441,7 +351,7 @@ void *extend_heap(size_t size_16)
         // remove the previous block from the free list
         size_t extra_size = GET_SIZE(HDRP(prev_blkp));
         size_t list_index = get_list_index(extra_size);
-        sorted_list_remove(list_index, HDRP(prev_blkp));
+        sorted_list_remove_unsafe(list_index, HDRP(prev_blkp));
         // coalesce left with heap and free'd block
         size_16 += extra_size;
         bp = prev_blkp;
@@ -460,13 +370,13 @@ void *extend_heap(size_t size_16)
 }
 
 /**********************************************************
- * find_fit
+ * find_fit_unsafe
  * Traverse the heap searching for a block to fit asize
  * Return NULL if no free blocks can handle that size
  * Assumed that asize is aligned
  * Removes the returned block from the free list
  **********************************************************/
-void *find_fit(const size_t fl_index, size_t asize)
+void *find_fit_unsafe(const size_t fl_index, size_t asize)
 {
     DEBUG_PRINTF("\tLooking for asize %ld in free_list %p\n", asize, free_list[fl_index]);
     // the free list is sorted by size then by memory address, therefore the first block that fits at least asize is the best fit
@@ -535,9 +445,10 @@ void *my_malloc(size_t size)
     // Search the free lists for a block which will fit the required size
     for (; list_index < FREE_LIST_SIZE && bp == NULL; ++list_index) {
         if (free_list[list_index])
-            bp = find_fit(list_index, asize);
+            bp = find_fit_unsafe(list_index, asize);
     }
 
+    // TODO need to protect this
     if (!bp) {
         // extend heap and set found_bp to new block
         size_t free_heap_size = 0;
@@ -547,15 +458,17 @@ void *my_malloc(size_t size)
             free_heap_size = heap_chunk_size_alloc & (~DSIZE - 1);
         }
         DEBUG_PRINTF("\tCurrent free heap size is %ld\n", free_heap_size);
-        bp = extend_heap(MAX(asize - free_heap_size, CHUNKSIZE));// we are always going to extend the heap by at least CHUNKSIZE bytes to reduce calls to sbrk
+        bp = extend_heap_unsafe(MAX(asize - free_heap_size, CHUNKSIZE));// we are always going to extend the heap by at least CHUNKSIZE bytes to reduce calls to sbrk
         // if extend fails, return null
         if (!bp) {
             DEBUG_PRINTF("\tReturning NULL\n");
             return NULL;
         }
     }
+
+    // Assumption: we hold a lock on BP at this point
     // split the block if the found block is too large for a reasonable return size
-    bp = split_block(bp, asize);
+    bp = split_block_unsafe(bp, asize);
     DEBUG_PRINTF("\tFound bp %p, size %ld\n", bp, GET_SIZE(HDRP(bp)));
 
     // Allocate and set the size of the block and return it to the caller
