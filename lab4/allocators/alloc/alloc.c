@@ -401,24 +401,6 @@ void *find_fit_unsafe(const size_t fl_index, size_t asize)
     return curr;
 }
 
-/**********************************************************
- * my_free
- * Free the block and coalesce with neighbouring blocks
- **********************************************************/
-void my_free(void *bp)
-{
-    DEBUG_PRINTF("Freeing %p\n", bp);
-    if(bp == NULL){
-      return;
-    }
-    // set the free bit and coalesce, inserting into the appropriate free list
-    size_t size = GET_SIZE(HDRP(bp));
-    PUT(HDRP(bp), PACK(size,0));
-    PUT(FTRP(bp), PACK(size,0));
-    coalesce(bp);
-    DEBUG_PRINT_FREE_LISTS();
-    DEBUG_ASSERT(mm_check() != 0);
-}
 
 /**********************************************************
  * my_malloc
@@ -526,9 +508,7 @@ int mm_init(void)
     return 0;
 }
 
-void *
-mm_malloc(size_t sz)
-{
+void * mm_malloc(size_t sz) {
 	void *result;
 
 	pthread_mutex_lock(&malloc_lock);
@@ -538,17 +518,24 @@ mm_malloc(size_t sz)
 	return result;
 }
 
-void
-mm_free(void *ptr)
-{
-	/*
-	 * Try subpage first; if that fails, assume it's a big allocation.
-	 */
-	if (ptr == NULL) {
-		return;
-	} else {
-	  pthread_mutex_lock(&malloc_lock);
-      my_free(ptr);
-	  pthread_mutex_unlock(&malloc_lock);
-	}
+/**********************************************************
+ * mm_free
+ * Free the block and coalesce with neighbouring blocks
+ **********************************************************/
+void mm_free(void *ptr) {
+    DEBUG_PRINTF("Freeing %p\n", bp);
+    if(bp == NULL){
+      return;
+    }
+    // set the free bit and coalesce, inserting into the appropriate free list
+    size_t size = GET_SIZE(HDRP(bp));
+    size_t index = get_list_index(size);
+    pthread_mutex_lock(lock_list[index]);
+    PUT(HDRP(bp), PACK(size,0));
+    PUT(FTRP(bp), PACK(size,0));
+    free_list[index] = sorted_list_insert_unsafe(free_list[index], bp, size);
+    // coalesce(bp); // TODO fix coalescing
+    pthread_mutex_unlock(lock_list[index]);
+    DEBUG_PRINT_FREE_LISTS();
+    DEBUG_ASSERT(mm_check() != 0);
 }
