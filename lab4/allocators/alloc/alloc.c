@@ -10,6 +10,7 @@
 #include "malloc.h"
 #include <stdint.h>
 #include <string.h>
+#include <time.h>
 
 name_t myname = {
      /* team name to be displayed on webpage */
@@ -36,6 +37,8 @@ name_t myname = {
 // #define DEBUG
 // #define PRINT_FREE_LISTS
 
+#define PTHREAD_MUTEX_SUCCESS 0
+#define ONE_HUNDRED_MICROSECONDS_IN_NS 100000
 #define WSIZE         sizeof(void *)            /* word size (bytes) */
 #define OVERHEAD      WSIZE
 #define OVERHEAD_4    OVERHEAD * 4;
@@ -91,6 +94,7 @@ void *heap_listp = NULL;
 void *heap_epilogue_hdrp = NULL;
 void *free_list[FREE_LIST_SIZE];
 pthread_mutex_t *lock_list[FREE_LIST_SIZE];
+pthread_mutex_t extend_heap_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /* Cast free_list entries to this struct for easier management */
 typedef struct linked_list {
@@ -291,6 +295,8 @@ void sorted_list_remove_unsafe(size_t free_list_index, void *hdrp_bp)
     #endif
 }
 
+// wait at most 100uS for a lock
+struct timespec default_lock_timeout;
 /**********************************************************
  * split_block_unsafe
  * given a block pointer and a required size, split the block
@@ -316,7 +322,13 @@ void *split_block_unsafe(void *bp, const size_t adjusted_req_size)
         DEBUG_PRINTF("\t**Too Small, don't split\n");
         return bp;
     }
-    // TODO try lock, if failed, don't split
+    // try to obtain lock. If times out, don't split and return original block
+    clock_gettime(CLOCK_REALTIME, &default_lock_timeout);
+    default_lock_timeout.tv_nsec += ONE_HUNDRED_MICROSECONDS_IN_NS;
+    pthread_mutex_t *current_lock = lock_list[remainder_size_index];
+    if (pthread_mutex_trylock(current_lock, &default_lock_timeout) != PTHREAD_MUTEX_SUCCESS) {
+        return bp;
+    }
 
     // We will get a decent sized block from this split, so do it
     PUT(hdrp_bp, PACK(adjusted_req_size, bp_is_allocated));
@@ -325,7 +337,9 @@ void *split_block_unsafe(void *bp, const size_t adjusted_req_size)
     void *new_block = NEXT_BLKP(bp);
     PUT(HDRP(new_block), PACK(remainder_size, 0));
     PUT(FTRP(new_block), PACK(remainder_size, 0));
+    // we own the lock on this free list due to the timedlock success
     free_list[remainder_size_index] = sorted_list_insert_unsafe(free_list[remainder_size_index], new_block, remainder_size);
+    pthread_mutex_unlock(current_lock);
 
     DEBUG_PRINTF("\tSplit block of size %ld(idx %ld) into two blocks of size %ld(idx %ld) and %ld(idx %ld)\n", current_size, current_size_index, adjusted_req_size, get_list_index(adjusted_req_size), remainder_size, remainder_size_index);
     DEBUG_PRINT_FREE_LISTS();
@@ -358,6 +372,8 @@ void *extend_heap_unsafe(size_t size_16)
     if (!prev_alloc) {
         DEBUG_PRINTF("is not allocated\n");
         // remove the previous block from the free list
+        // NOTE: we must be holding the lock for prev_blkp already
+        //       this must be done by the caller of extend_heap_unsafe
         size_t extra_size = GET_SIZE(HDRP(prev_blkp));
         size_t list_index = get_list_index(extra_size);
         sorted_list_remove_unsafe(list_index, HDRP(prev_blkp));
@@ -369,9 +385,13 @@ void *extend_heap_unsafe(size_t size_16)
     }
     /* Initialize free block header/footer */
     DEBUG_PRINTF("\tNew freeblock size is %ld\n", size_16);
-    PUT(HDRP(bp), PACK(size_16, 0));
-    PUT(FTRP(bp), PACK(size_16, 0));
-    /* Initialize the epilogue header */
+    // Note that we set this block as allocated.
+    // This is to avoid needed a new lock and inserting into the free list
+    // A call to split_block_unsafe will insert the remainder into the free list
+    // and set the free bit
+    PUT(HDRP(bp), PACK(size_16, 1));
+    PUT(FTRP(bp), PACK(size_16, 1));
+    /* Initialize the new epilogue header */
     heap_epilogue_hdrp = HDRP(NEXT_BLKP(bp));
     PUT(heap_epilogue_hdrp, PACK(0, 1));
     DEBUG_PRINTF("\t**New epilogue header is %p\n", HDRP(NEXT_BLKP(bp)));
@@ -446,13 +466,29 @@ void *my_malloc(size_t size)
         }
     }
 
-    // TODO need to protect this
     if (!bp) {
         // extend heap and set found_bp to new block
         size_t free_heap_size = 0;
         size_t heap_chunk_size_alloc = GET(heap_epilogue_hdrp - OVERHEAD);
-        // TODO: get a lock for this size, then double check we still have the right block
-            // if wrong, unlock and try again. Keep looping.
+        size_t heap_chunk_idx = get_list_index(heap_chunk_size_alloc & ~0x1);
+        size_t heap_chunk_post_lock_idx = -1;
+        // get a lock for this size, then double check we still have the right block
+        // if wrong, unlock and try again. Keep looping.
+        pthread_mutex_lock(&extend_heap_lock);
+        while (1) {
+            current_lock = lock_list[heap_chunk_idx];
+            pthread_mutex_lock(current_lock);
+            // update our chunk size_alloc in case it changed
+            heap_chunk_size_alloc = GET(heap_epilogue_hdrp - OVERHEAD);
+            heap_chunk_post_lock_idx = get_list_index(heap_chunk_size_alloc & ~0x1);
+            if (heap_chunk_post_lock_idx == heap_chunk_idx) {
+                // successfully found lock for the heap free chunk
+                break;
+            }
+            pthread_mutex_unlock(current_lock);
+            heap_chunk_idx = heap_chunk_post_lock_idx;
+        }
+        // we hold a lock on the last (possibly free) heap chunk
         DEBUG_PRINTF("\tHeap Chunk FTRP: %p\n", heap_epilogue_hdrp - OVERHEAD);
         if (!(heap_chunk_size_alloc & 0x1)) {
             free_heap_size = heap_chunk_size_alloc & (~DSIZE - 1);
@@ -467,16 +503,27 @@ void *my_malloc(size_t size)
     }
 
     // Assumption: we hold a lock on BP at this point
-    // TODO: mark as allocated and release lock. This way we know another thread cannot interfere with this block
+    // Mark as allocated and release lock. This way we know another thread cannot interfere with this block
     // Also, we wont have to worry about split_block_unsafe causing a deadlock
     // split the block if the found block is too large for a reasonable return size
-    bp = split_block_unsafe(bp, asize);
-    DEBUG_PRINTF("\tFound bp %p, size %ld\n", bp, GET_SIZE(HDRP(bp)));
-
-    // Allocate and set the size of the block and return it to the caller
     asize = GET_SIZE(HDRP(bp));
     PUT(HDRP(bp), PACK(asize, 1));
     PUT(FTRP(bp), PACK(asize, 1));
+    pthread_mutex_unlock(current_lock);
+    bp = split_block_unsafe(bp, asize); // TODO: might not have to do a timed lock here
+    DEBUG_PRINTF("\tFound bp %p, size %ld\n", bp, GET_SIZE(HDRP(bp)));
+
+    // Allocate and set the size of the block and return it to the caller
+    // TODO can remove these lines?
+    // asize = GET_SIZE(HDRP(bp));
+    // PUT(HDRP(bp), PACK(asize, 1));
+    // PUT(FTRP(bp), PACK(asize, 1));
+
+    // We release this lock here to improve fragmentation when multiple malloc's have to extend the heap
+    //    -> Wait until we've split the block so we can get some reuse
+    // TODO are we allowed to ignore errors here?
+    // will return an ignorable error code if never held extend_heap_lock
+    pthread_mutex_unlock(&extend_heap_lock);
     DEBUG_PRINTF("\tReturning %p\n", bp);
     DEBUG_ASSERT(mm_check() != 0);
     return bp;
