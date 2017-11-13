@@ -90,7 +90,7 @@ name_t myname = {
 #endif
 
 #define FREE_LIST_SIZE 30
-#define NUM_ARENAS 8
+#define NUM_ARENAS 9
 void *heap_listp = NULL;
 void *heap_epilogue_hdrp = NULL;
 void *free_list[NUM_ARENAS][FREE_LIST_SIZE];
@@ -461,7 +461,6 @@ void *my_malloc(size_t size)
     // Search the free lists for a block which will fit the required size
     for (; list_index < FREE_LIST_SIZE && bp == NULL; ++list_index) {
         current_lock = &lock_list[arena_index][list_index];
-        printf("%d: %ld\n", pthread_self(), list_index);
         pthread_mutex_lock(current_lock);
         if (free_list[arena_index][list_index]) {
             bp = find_fit_unsafe(list_index, asize);
@@ -601,13 +600,13 @@ void mm_free(void *bp) {
     // set the free bit and coalesce, inserting into the appropriate free list
     size_t size = GET_SIZE(HDRP(bp));
     size_t index = get_list_index(size);
-    printf("%d: %ld\n", pthread_self(), index);
-    pthread_mutex_lock(&lock_list[arena_index][index]);
+    pthread_mutex_t *current_lock = &lock_list[arena_index][index];
+    pthread_mutex_lock(current_lock);
     PUT(HDRP(bp), PACK(size,0));
     PUT(FTRP(bp), PACK(size,0));
     free_list[arena_index][index] = sorted_list_insert_unsafe(free_list[arena_index][index], bp, size);
     // coalesce(bp); // TODO fix coalescing
-    pthread_mutex_unlock(&lock_list[arena_index][index]);
+    pthread_mutex_unlock(current_lock);
     DEBUG_PRINT_FREE_LISTS();
     DEBUG_ASSERT(mm_check() != 0);
 }
