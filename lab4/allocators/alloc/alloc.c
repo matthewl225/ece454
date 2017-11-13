@@ -329,7 +329,9 @@ void *split_block_unsafe(void *bp, const size_t adjusted_req_size)
     clock_gettime(CLOCK_REALTIME, &default_lock_timeout);
     default_lock_timeout.tv_nsec += ONE_HUNDRED_MICROSECONDS_IN_NS;
     pthread_mutex_t *current_lock = &lock_list[arena_index][remainder_size_index];
-    if (pthread_mutex_timedlock(current_lock, &default_lock_timeout) != PTHREAD_MUTEX_SUCCESS) {
+    int res = pthread_mutex_timedlock(current_lock, &default_lock_timeout);
+    if (res != PTHREAD_MUTEX_SUCCESS) {
+        printf("Got timelock res = %d\n", res);
         return bp;
     }
 
@@ -461,7 +463,8 @@ void *my_malloc(size_t size)
     // Search the free lists for a block which will fit the required size
     for (; list_index < FREE_LIST_SIZE && bp == NULL; ++list_index) {
         current_lock = &lock_list[arena_index][list_index];
-        pthread_mutex_lock(current_lock);
+        int res = pthread_mutex_trylock(current_lock);
+        assert(res == 0);
         if (free_list[arena_index][list_index]) {
             bp = find_fit_unsafe(list_index, asize);
         }
@@ -481,8 +484,8 @@ void *my_malloc(size_t size)
         // pthread_mutex_lock(&extend_heap_lock);
         while (1) {
             current_lock = &lock_list[arena_index][heap_chunk_idx];
-            printf("%d: %ld\n", pthread_self(), heap_chunk_idx);
-            pthread_mutex_lock(current_lock);
+            int res = pthread_mutex_trylock(current_lock);
+            assert(res == 0);
             // update our chunk size_alloc in case it changed
             heap_chunk_size_alloc = GET(heap_epilogue_hdrp - OVERHEAD);
             heap_chunk_post_lock_idx = get_list_index(heap_chunk_size_alloc & ~0x1);
@@ -565,6 +568,7 @@ int mm_init(void)
         for (int i = 0; i < FREE_LIST_SIZE; ++i) {
             free_list[j][i] = NULL;
             pthread_mutex_init(&lock_list[j][i], NULL);
+            printf("Lock %d,%d is %p\n", j, i, &lock_list[j][i]);
         }
     }
     return 0;
@@ -601,7 +605,8 @@ void mm_free(void *bp) {
     size_t size = GET_SIZE(HDRP(bp));
     size_t index = get_list_index(size);
     pthread_mutex_t *current_lock = &lock_list[arena_index][index];
-    pthread_mutex_lock(current_lock);
+    int res = pthread_mutex_trylock(current_lock);
+    assert(res == 0);
     PUT(HDRP(bp), PACK(size,0));
     PUT(FTRP(bp), PACK(size,0));
     free_list[arena_index][index] = sorted_list_insert_unsafe(free_list[arena_index][index], bp, size);
