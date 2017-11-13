@@ -90,11 +90,12 @@ name_t myname = {
 #endif
 
 #define FREE_LIST_SIZE 30
+#define NUM_ARENAS 8
 void *heap_listp = NULL;
 void *heap_epilogue_hdrp = NULL;
 void *free_list[FREE_LIST_SIZE];
 // pthread_mutex_t extend_heap_lock = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t lock_list[FREE_LIST_SIZE];
+pthread_mutex_t lock_list[NUM_ARENAS][FREE_LIST_SIZE];
 
 /* Cast free_list entries to this struct for easier management */
 typedef struct linked_list {
@@ -325,7 +326,7 @@ void *split_block_unsafe(void *bp, const size_t adjusted_req_size)
     // try to obtain lock. If times out, don't split and return original block
     clock_gettime(CLOCK_REALTIME, &default_lock_timeout);
     default_lock_timeout.tv_nsec += ONE_HUNDRED_MICROSECONDS_IN_NS;
-    pthread_mutex_t *current_lock = &lock_list[remainder_size_index];
+    pthread_mutex_t *current_lock = &lock_list[0][remainder_size_index];
     if (pthread_mutex_timedlock(current_lock, &default_lock_timeout) != PTHREAD_MUTEX_SUCCESS) {
         return bp;
     }
@@ -457,7 +458,7 @@ void *my_malloc(size_t size)
     DEBUG_PRINTF("\tAdjusted to %ld bytes\n", asize);
     // Search the free lists for a block which will fit the required size
     for (; list_index < FREE_LIST_SIZE && bp == NULL; ++list_index) {
-        current_lock = &lock_list[list_index];
+        current_lock = &lock_list[0][list_index];
         printf("%d: %ld\n", pthread_self(), list_index);
         pthread_mutex_lock(current_lock);
         if (free_list[list_index]) {
@@ -478,7 +479,7 @@ void *my_malloc(size_t size)
         // if wrong, unlock and try again. Keep looping.
         // pthread_mutex_lock(&extend_heap_lock);
         while (1) {
-            current_lock = &lock_list[heap_chunk_idx];
+            current_lock = &lock_list[0][heap_chunk_idx];
             printf("%d: %ld\n", pthread_self(), heap_chunk_idx);
             pthread_mutex_lock(current_lock);
             // update our chunk size_alloc in case it changed
@@ -561,7 +562,7 @@ int mm_init(void)
     // Set all free lists as empty and create their associated locks
     for (int i = 0; i < FREE_LIST_SIZE; ++i) {
         free_list[i] = NULL;
-        pthread_mutex_init(&lock_list[i], NULL);
+        pthread_mutex_init(&lock_list[0][i], NULL);
     }
     return 0;
 }
@@ -589,12 +590,12 @@ void mm_free(void *bp) {
     size_t size = GET_SIZE(HDRP(bp));
     size_t index = get_list_index(size);
     printf("%d: %ld\n", pthread_self(), index);
-    pthread_mutex_lock(&lock_list[index]);
+    pthread_mutex_lock(&lock_list[0][index]);
     PUT(HDRP(bp), PACK(size,0));
     PUT(FTRP(bp), PACK(size,0));
     free_list[index] = sorted_list_insert_unsafe(free_list[index], bp, size);
     // coalesce(bp); // TODO fix coalescing
-    pthread_mutex_unlock(&lock_list[index]);
+    pthread_mutex_unlock(&lock_list[0][index]);
     DEBUG_PRINT_FREE_LISTS();
     DEBUG_ASSERT(mm_check() != 0);
 }
