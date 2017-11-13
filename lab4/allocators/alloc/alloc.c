@@ -73,7 +73,7 @@ name_t myname = {
     pthread_mutex_t printf_lock = PTHREAD_MUTEX_INITIALIZER;
     #define DEBUG_PRINTF(...) { \
         pthread_mutex_lock(&printf_lock); \
-        printf("Thread %d: ", gettid()); \
+        printf("Thread %d: ", pthread_self()); \
         printf(__VA_ARGS__); \
         pthread_mutex_unlock(&printf_lock); \
     }
@@ -458,6 +458,7 @@ void *my_malloc(size_t size)
     // Search the free lists for a block which will fit the required size
     for (; list_index < FREE_LIST_SIZE && bp == NULL; ++list_index) {
         current_lock = &lock_list[list_index];
+        printf("%d: %ld\n", pthread_self(), list_index);
         pthread_mutex_lock(current_lock);
         if (free_list[list_index]) {
             bp = find_fit_unsafe(list_index, asize);
@@ -478,6 +479,7 @@ void *my_malloc(size_t size)
         // pthread_mutex_lock(&extend_heap_lock);
         while (1) {
             current_lock = &lock_list[heap_chunk_idx];
+            printf("%d: %ld\n", pthread_self(), heap_chunk_idx);
             pthread_mutex_lock(current_lock);
             // update our chunk size_alloc in case it changed
             heap_chunk_size_alloc = GET(heap_epilogue_hdrp - OVERHEAD);
@@ -567,9 +569,9 @@ int mm_init(void)
 void * mm_malloc(size_t sz) {
 	void *result;
 
-	pthread_mutex_lock(&malloc_lock);
+	// pthread_mutex_lock(&malloc_lock);
     result = my_malloc(sz);
-    pthread_mutex_unlock(&malloc_lock);
+    // pthread_mutex_unlock(&malloc_lock);
 
 	return result;
 }
@@ -586,6 +588,7 @@ void mm_free(void *bp) {
     // set the free bit and coalesce, inserting into the appropriate free list
     size_t size = GET_SIZE(HDRP(bp));
     size_t index = get_list_index(size);
+    printf("%d: %ld\n", pthread_self(), index);
     pthread_mutex_lock(&lock_list[index]);
     PUT(HDRP(bp), PACK(size,0));
     PUT(FTRP(bp), PACK(size,0));
