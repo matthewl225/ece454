@@ -96,6 +96,8 @@ void *heap_epilogue_hdrp = NULL;
 void *free_list[FREE_LIST_SIZE];
 // pthread_mutex_t extend_heap_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t lock_list[NUM_ARENAS][FREE_LIST_SIZE];
+int thread_count = 0;
+__thread int arena_index = -1;
 
 /* Cast free_list entries to this struct for easier management */
 typedef struct linked_list {
@@ -568,13 +570,17 @@ int mm_init(void)
 }
 
 void * mm_malloc(size_t sz) {
-	void *result;
+    void *result;
+    if (arena_index < 0) {
+        arena_index = __sync_fetch_and_add(&thread_count, 1) % NUM_ARENAS;
+        printf("%d: Got arena index %d\n", pthread_self(), arena_index);
+    }
 
-	// pthread_mutex_lock(&malloc_lock);
+    // pthread_mutex_lock(&malloc_lock);
     result = my_malloc(sz);
     // pthread_mutex_unlock(&malloc_lock);
 
-	return result;
+    return result;
 }
 
 /**********************************************************
@@ -585,6 +591,10 @@ void mm_free(void *bp) {
     DEBUG_PRINTF("Freeing %p\n", bp);
     if(bp == NULL){
       return;
+    }
+    if (arena_index < 0) {
+        arena_index = __sync_fetch_and_add(&thread_count, 1) % NUM_ARENAS;
+        printf("%d: Got arena index %d\n", pthread_self(), arena_index);
     }
     // set the free bit and coalesce, inserting into the appropriate free list
     size_t size = GET_SIZE(HDRP(bp));
