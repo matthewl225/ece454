@@ -91,10 +91,8 @@ name_t myname = {
 
 #define FREE_LIST_SIZE 30
 void *heap_listp = NULL;
-void *heap_epilogue_hdrp = NULL;
-void *free_list[FREE_LIST_SIZE];
-// pthread_mutex_t extend_heap_lock = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t lock_list[FREE_LIST_SIZE];
+__thread bool free_list_init = false;
+__thread void *free_list[FREE_LIST_SIZE];
 
 /* Cast free_list entries to this struct for easier management */
 typedef struct linked_list {
@@ -228,6 +226,27 @@ size_t get_list_index(size_t size)
     return result;
 }
 
+size_t global_heap_bytes = 0;
+pthread_mutex_t global_heap_lock = PTHREAD_MUTEX_INITIALIZER;
+void *global_heap_extend(size_t num_bytes) {
+    pthread_mutex_lock(&global_heap_lock);
+    void *retval = NULL;
+    void *bp = NULL;
+    if (num_bytes < global_heap_bytes) {
+        global_heap_bytes -= num_bytes;
+        retval = heap_listp;
+        heap_ptr += num_bytes;
+    } else if ((bp = mem_sbrk(num_bytes - global_heap_bytes)) != (void *)-1) {
+        global_heap_bytes = 0;
+        retval = heap_listp;
+        heap_ptr += num_bytes;
+    } else {
+        DEBUG_PRINTF("ERROR: Could not sbrk!\n");
+    }
+    pthread_mutex_unlock(&global_heap_lock);
+    return retval;
+}
+
 /**********************************************************
  * sorted_list_insert_unsafe
  * insert the given block into the given list at the correct position
@@ -325,7 +344,6 @@ void *split_block_unsafe(void *bp, const size_t adjusted_req_size)
     // try to obtain lock. If times out, don't split and return original block
     clock_gettime(CLOCK_REALTIME, &default_lock_timeout);
     default_lock_timeout.tv_nsec += ONE_HUNDRED_MICROSECONDS_IN_NS;
-    pthread_mutex_t *current_lock = &lock_list[remainder_size_index];
     if (pthread_mutex_timedlock(current_lock, &default_lock_timeout) != PTHREAD_MUTEX_SUCCESS) {
         return bp;
     }
@@ -337,65 +355,11 @@ void *split_block_unsafe(void *bp, const size_t adjusted_req_size)
     void *new_block = NEXT_BLKP(bp);
     PUT(HDRP(new_block), PACK(remainder_size, 0));
     PUT(FTRP(new_block), PACK(remainder_size, 0));
-    // we own the lock on this free list due to the timedlock success
     free_list[remainder_size_index] = sorted_list_insert_unsafe(free_list[remainder_size_index], new_block, remainder_size);
-    pthread_mutex_unlock(current_lock);
 
     DEBUG_PRINTF("\tSplit block of size %ld(idx %ld) into two blocks of size %ld(idx %ld) and %ld(idx %ld)\n", current_size, current_size_index, adjusted_req_size, get_list_index(adjusted_req_size), remainder_size, remainder_size_index);
     DEBUG_PRINT_FREE_LISTS();
 
-    return bp;
-}
-
-
-/**********************************************************
- * extend_heap_unsafe
- * Extend the heap by "words" words, maintaining alignment
- * requirements of course. Free the former epilogue block
- * and reallocate its new header
- **********************************************************/
-void *extend_heap_unsafe(size_t size_16)
-{
-    DEBUG_PRINTF("\tExtending heap by %ld bytes\n", size_16);
-    DEBUG_ASSERT((size_16 % 16) == 0);
-    char *bp;
-
-    /* Allocate an even number of words to maintain alignments */
-    if ( (bp = mem_sbrk(size_16)) == (void *)-1 )
-        return NULL;
-    DEBUG_PRINTF("\tsbrk'd bp is %p\n", bp);
-
-
-    /* Coalesce left if the previous block was free */
-    char *prev_blkp = PREV_BLKP(bp);
-    size_t prev_alloc = GET_ALLOC(HDRP(prev_blkp));
-    DEBUG_PRINTF("\tPrevious blkp is %p and ", prev_blkp);
-    if (!prev_alloc) {
-        DEBUG_PRINTF("is not allocated\n");
-        // remove the previous block from the free list
-        // NOTE: we must be holding the lock for prev_blkp already
-        //       this must be done by the caller of extend_heap_unsafe
-        size_t extra_size = GET_SIZE(HDRP(prev_blkp));
-        size_t list_index = get_list_index(extra_size);
-        sorted_list_remove_unsafe(list_index, HDRP(prev_blkp));
-        // coalesce left with heap and free'd block
-        size_16 += extra_size;
-        bp = prev_blkp;
-    } else {
-        DEBUG_PRINTF("is allocated\n");
-    }
-    /* Initialize free block header/footer */
-    DEBUG_PRINTF("\tNew freeblock size is %ld\n", size_16);
-    // Note that we set this block as allocated.
-    // This is to avoid needed a new lock and inserting into the free list
-    // A call to split_block_unsafe will insert the remainder into the free list
-    // and set the free bit
-    PUT(HDRP(bp), PACK(size_16, 1));
-    PUT(FTRP(bp), PACK(size_16, 1));
-    /* Initialize the new epilogue header */
-    heap_epilogue_hdrp = HDRP(NEXT_BLKP(bp));
-    PUT(heap_epilogue_hdrp, PACK(0, 1));
-    DEBUG_PRINTF("\t**New epilogue header is %p\n", HDRP(NEXT_BLKP(bp)));
     return bp;
 }
 
@@ -457,82 +421,28 @@ void *my_malloc(size_t size)
     DEBUG_PRINTF("\tAdjusted to %ld bytes\n", asize);
     // Search the free lists for a block which will fit the required size
     for (; list_index < FREE_LIST_SIZE && bp == NULL; ++list_index) {
-        current_lock = &lock_list[list_index];
-        printf("%d: %ld\n", pthread_self(), list_index);
-        pthread_mutex_lock(current_lock);
         if (free_list[list_index]) {
             bp = find_fit_unsafe(list_index, asize);
-        }
-        if (!bp) {
-            pthread_mutex_unlock(current_lock);
         }
     }
 
     if (!bp) {
-        // extend heap and set found_bp to new block
-        size_t free_heap_size = 0;
-        size_t heap_chunk_size_alloc = GET(heap_epilogue_hdrp - OVERHEAD);
-        size_t heap_chunk_idx = get_list_index(heap_chunk_size_alloc & ~0x1);
-        size_t heap_chunk_post_lock_idx = -1;
-        // get a lock for this size, then double check we still have the right block
-        // if wrong, unlock and try again. Keep looping.
-        // pthread_mutex_lock(&extend_heap_lock);
-        while (1) {
-            current_lock = &lock_list[heap_chunk_idx];
-            printf("%d: %ld\n", pthread_self(), heap_chunk_idx);
-            pthread_mutex_lock(current_lock);
-            // update our chunk size_alloc in case it changed
-            heap_chunk_size_alloc = GET(heap_epilogue_hdrp - OVERHEAD);
-            heap_chunk_post_lock_idx = get_list_index(heap_chunk_size_alloc & ~0x1);
-            if (heap_chunk_post_lock_idx == heap_chunk_idx) {
-                // successfully found lock for the heap free chunk
-                break;
-            }
-            pthread_mutex_unlock(current_lock);
-            heap_chunk_idx = heap_chunk_post_lock_idx;
-        }
-        // we hold a lock on the last (possibly free) heap chunk
-        DEBUG_PRINTF("\tHeap Chunk FTRP: %p\n", heap_epilogue_hdrp - OVERHEAD);
-        if (!(heap_chunk_size_alloc & 0x1)) {
-            free_heap_size = heap_chunk_size_alloc & (~DSIZE - 1);
-        }
-        DEBUG_PRINTF("\tCurrent free heap size is %ld\n", free_heap_size);
-        bp = extend_heap_unsafe(MAX(asize - free_heap_size, CHUNKSIZE));// we are always going to extend the heap by at least CHUNKSIZE bytes to reduce calls to sbrk
-        // if extend fails, return null
+        bp = global_heap_extend(asize);
         if (!bp) {
             DEBUG_PRINTF("\tReturning NULL\n");
             return NULL;
         }
     }
 
-    // Assumption: we hold a lock on BP at this point
-    // Mark as allocated and release lock. This way we know another thread cannot interfere with this block
-    // Also, we wont have to worry about split_block_unsafe causing a deadlock
-    // split the block if the found block is too large for a reasonable return size
     asize = GET_SIZE(HDRP(bp));
     PUT(HDRP(bp), PACK(asize, 1));
     PUT(FTRP(bp), PACK(asize, 1));
-    pthread_mutex_unlock(current_lock);
-    bp = split_block_unsafe(bp, asize); // TODO: might not have to do a timed lock here
+    bp = split_block_unsafe(bp, asize);
+
     DEBUG_PRINTF("\tFound bp %p, size %ld\n", bp, GET_SIZE(HDRP(bp)));
-
-    // Allocate and set the size of the block and return it to the caller
-    // TODO can remove these lines?
-    // asize = GET_SIZE(HDRP(bp));
-    // PUT(HDRP(bp), PACK(asize, 1));
-    // PUT(FTRP(bp), PACK(asize, 1));
-
-    // We release this lock here to improve fragmentation when multiple malloc's have to extend the heap
-    //    -> Wait until we've split the block so we can get some reuse
-    // TODO are we allowed to ignore errors here?
-    // will return an ignorable error code if never held extend_heap_lock
-    // pthread_mutex_unlock(&extend_heap_lock);
-    DEBUG_PRINTF("\tReturning %p\n", bp);
     DEBUG_ASSERT(mm_check() != 0);
     return bp;
 }
-
-pthread_mutex_t malloc_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /**********************************************************
  * mm_init
@@ -543,37 +453,21 @@ int mm_init(void)
 {
     DEBUG_PRINTF("************************MM INIT************************\n");
     mem_init();
-    if ((heap_listp = mem_sbrk(4*WSIZE)) == NULL) {
+    if ((heap_listp = mem_sbrk(INITIAL_HEAP_SIZE)) == NULL) {
         return -1;
-    }
-    heap_epilogue_hdrp = heap_listp + 3*WSIZE;
-
-    DEBUG_PRINTF("Got heap listp of %p\n", heap_listp);
-    PUT(heap_listp, 0);                         // alignment padding
-    PUT(heap_listp + WSIZE, PACK(DSIZE, 1));   // prologue header
-    DEBUG_PRINTF("Prologue header is %p\n", heap_listp + WSIZE);
-    PUT(heap_listp + 2*WSIZE, PACK(DSIZE, 1));   // prologue footer
-    DEBUG_PRINTF("Prologue footer is %p\n", heap_listp + 2*WSIZE);
-    PUT(heap_epilogue_hdrp, PACK(0, 1));    // epilogue header, size = number of bytes
-    DEBUG_PRINTF("Epilogue header is %p\n", heap_listp + 3*WSIZE);
-    heap_listp += DSIZE;
-    DEBUG_PRINT_FREE_LISTS();
-    // Set all free lists as empty and create their associated locks
-    for (int i = 0; i < FREE_LIST_SIZE; ++i) {
-        free_list[i] = NULL;
-        pthread_mutex_init(&lock_list[i], NULL);
     }
     return 0;
 }
 
 void * mm_malloc(size_t sz) {
-	void *result;
-
-	// pthread_mutex_lock(&malloc_lock);
-    result = my_malloc(sz);
-    // pthread_mutex_unlock(&malloc_lock);
-
-	return result;
+    if (!free_list_init) {
+        // Set all free lists as empty
+        free_list_init = true;
+        for (int i = 0; i < FREE_LIST_SIZE; ++i) {
+            free_list[i] = NULL;
+        }
+    }
+    return my_malloc(sz);
 }
 
 /**********************************************************
@@ -585,16 +479,21 @@ void mm_free(void *bp) {
     if(bp == NULL){
       return;
     }
+    if (!free_list_init) {
+        // Set all free lists as empty
+        free_list_init = true;
+        for (int i = 0; i < FREE_LIST_SIZE; ++i) {
+            free_list[i] = NULL;
+        }
+    }
     // set the free bit and coalesce, inserting into the appropriate free list
     size_t size = GET_SIZE(HDRP(bp));
     size_t index = get_list_index(size);
-    printf("%d: %ld\n", pthread_self(), index);
-    pthread_mutex_lock(&lock_list[index]);
     PUT(HDRP(bp), PACK(size,0));
     PUT(FTRP(bp), PACK(size,0));
     free_list[index] = sorted_list_insert_unsafe(free_list[index], bp, size);
     // coalesce(bp); // TODO fix coalescing
-    pthread_mutex_unlock(&lock_list[index]);
+    // TODO could release to a global free list to decrease fragmentation
     DEBUG_PRINT_FREE_LISTS();
     DEBUG_ASSERT(mm_check() != 0);
 }
