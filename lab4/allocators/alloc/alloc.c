@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <time.h>
+#include <stdbool.h>
 
 name_t myname = {
      /* team name to be displayed on webpage */
@@ -90,7 +91,11 @@ name_t myname = {
 #endif
 
 #define FREE_LIST_SIZE 30
+#define INITIAL_HEAP_SIZE 512
+#define MIN_EXTEND_SIZE 64 // cache line size to avoid false sharing
 void *heap_listp = NULL;
+size_t global_heap_bytes = 0;
+pthread_mutex_t global_heap_lock = PTHREAD_MUTEX_INITIALIZER;
 __thread bool free_list_init = false;
 __thread void *free_list[FREE_LIST_SIZE];
 
@@ -226,24 +231,27 @@ size_t get_list_index(size_t size)
     return result;
 }
 
-size_t global_heap_bytes = 0;
-pthread_mutex_t global_heap_lock = PTHREAD_MUTEX_INITIALIZER;
 void *global_heap_extend(size_t num_bytes) {
     pthread_mutex_lock(&global_heap_lock);
+    // printf("Extending Heap by %ld, current p = %p\n", num_bytes, heap_listp);
     void *retval = NULL;
     void *bp = NULL;
     if (num_bytes < global_heap_bytes) {
         global_heap_bytes -= num_bytes;
-        retval = heap_listp;
-        heap_ptr += num_bytes;
-    } else if ((bp = mem_sbrk(num_bytes - global_heap_bytes)) != (void *)-1) {
-        global_heap_bytes = 0;
-        retval = heap_listp;
-        heap_ptr += num_bytes;
+        retval = heap_listp + OVERHEAD;
+        heap_listp += num_bytes;
+    } else if ((bp = mem_sbrk(num_bytes - global_heap_bytes)) != (void *)-1) { // TODO extend by at least MIN_SIZE every time
+        global_heap_bytes = 0; // TODO: adjust this number to != 0 when increasing by MIN_SIZE
+        retval = heap_listp + OVERHEAD;
+        heap_listp += num_bytes;
     } else {
         DEBUG_PRINTF("ERROR: Could not sbrk!\n");
+        return NULL;
     }
+    // printf("Returning %p\n", retval + OVERHEAD);
     pthread_mutex_unlock(&global_heap_lock);
+    PUT(HDRP(retval), PACK(num_bytes, 0));
+    PUT(FTRP(retval), PACK(num_bytes, 0));
     return retval;
 }
 
@@ -341,12 +349,6 @@ void *split_block_unsafe(void *bp, const size_t adjusted_req_size)
         DEBUG_PRINTF("\t**Too Small, don't split\n");
         return bp;
     }
-    // try to obtain lock. If times out, don't split and return original block
-    clock_gettime(CLOCK_REALTIME, &default_lock_timeout);
-    default_lock_timeout.tv_nsec += ONE_HUNDRED_MICROSECONDS_IN_NS;
-    if (pthread_mutex_timedlock(current_lock, &default_lock_timeout) != PTHREAD_MUTEX_SUCCESS) {
-        return bp;
-    }
 
     // We will get a decent sized block from this split, so do it
     PUT(hdrp_bp, PACK(adjusted_req_size, bp_is_allocated));
@@ -427,7 +429,7 @@ void *my_malloc(size_t size)
     }
 
     if (!bp) {
-        bp = global_heap_extend(asize);
+        bp = global_heap_extend(MAX(asize, MIN_EXTEND_SIZE));
         if (!bp) {
             DEBUG_PRINTF("\tReturning NULL\n");
             return NULL;
@@ -456,6 +458,7 @@ int mm_init(void)
     if ((heap_listp = mem_sbrk(INITIAL_HEAP_SIZE)) == NULL) {
         return -1;
     }
+    global_heap_bytes = INITIAL_HEAP_SIZE;
     return 0;
 }
 
