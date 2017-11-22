@@ -1,0 +1,6 @@
+Our solution works by creating thread-local free lists and protecting all mem_sbrk calls to extend the heap.
+Calls to malloc are first satisfied by splitting a block in the thread-local free lists if possible, requiring no locks.
+If no appropriate block exists, we allocate a block of at least MIN_EXTEND_SIZE bytes, split it into the appropriate size and insert the remainder into our local free lists.
+False-sharing is avoided by making MIN_EXTEND_SIZE at least cache-line size. We were able to achieve good performance by setting this value to 64 bytes
+If the global heap needs to be extended, we extend it by at least MIN_SBRK_SIZE each time. This is to reduce the number of system calls.
+Calls to mm_free insert the block directly into our own local free list, requiring no locks.

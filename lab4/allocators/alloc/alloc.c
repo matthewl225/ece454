@@ -38,8 +38,6 @@ name_t myname = {
 // #define DEBUG
 // #define PRINT_FREE_LISTS
 
-#define PTHREAD_MUTEX_SUCCESS 0
-#define ONE_HUNDRED_MICROSECONDS_IN_NS 100000
 #define WSIZE         sizeof(void *)            /* word size (bytes) */
 #define OVERHEAD      WSIZE
 #define OVERHEAD_4    OVERHEAD * 4;
@@ -90,12 +88,13 @@ name_t myname = {
     #define DEBUG_PRINT_FREE_LISTS()
 #endif
 
-#define FREE_LIST_SIZE 30
+#define FREE_LIST_SIZE 15
 #define INITIAL_HEAP_SIZE 512
 #define MIN_EXTEND_SIZE 64 // cache line size to avoid false sharing
+#define MIN_SBRK_SIZE 512
 void *heap_listp = NULL;
 size_t global_heap_bytes = 0;
-pthread_mutex_t global_heap_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_spinlock_t global_heap_lock;
 __thread bool free_list_init = false;
 __thread void *free_list[FREE_LIST_SIZE];
 
@@ -137,21 +136,6 @@ size_t get_bucket_size(size_t list_index, size_t current_size) {
     case 11: result = 6032; break;
     case 12: result = 9760; break;
     case 13: result = 15792; break;
-    case 14: result = 25552; break;
-    case 15: result = 41344; break;
-    case 16: result = 66896; break;
-    case 17: result = 108240; break;
-    case 18: result = 175136; break;
-    case 19: result = 283376; break;
-    case 20: result = 458512; break;
-    case 21: result = 741888; break;
-    case 22: result = 1200400; break;
-    case 23: result = 1942288; break;
-    case 24: result = 3142688; break;
-    case 25: result = 5084976; break;
-    case 26: result = 8227664; break;
-    case 27: result = 13312640; break;
-    case 28: result = 21540304; break;
     default: result = current_size; break;
     }
     if (result > (current_size + (current_size >> 2))) { // result > current_size + current_size/4 ==> result > 1.25*current_size
@@ -196,52 +180,22 @@ size_t get_list_index(size_t size)
                 else {result = 13;}
             }
         }
-    } else {
-        if (size < 741889) {
-            if (size < 108241) {
-                if (size < 41345) {
-                    if (size < 25553) {result = 14;}
-                    else {result = 15;}
-                } else if (size < 66897) {result = 16;}
-                else {result = 17;}
-            } else {
-                if (size < 283377) {
-                    if (size < 175137) {result = 18;}
-                    else {result = 19;}
-                } else if (size < 458513) {result = 20;}
-                else {result = 21;}
-            }
-        } else {
-            if (size < 5084977) {
-                if (size < 1942289) {
-                    if (size < 1200401) {result = 22;}
-                    else {result = 23;}
-                } else if (size < 3142689) {result = 24;}
-                else {result = 25;}
-            } else {
-                if (size < 13312641) {
-                    if (size < 8227665) {result = 26;}
-                    else {result = 27;}
-                } else if (size < 21540305) {result = 28;}
-                else {result = 29;}
-            }
-        }
-    }
+    } else { result = 14; }
     DEBUG_PRINTF("\tFound list index %ld\n", result);
     return result;
 }
 
 void *global_heap_extend(size_t num_bytes) {
-    pthread_mutex_lock(&global_heap_lock);
+    pthread_spin_lock(&global_heap_lock);
     // printf("Extending Heap by %ld, current p = %p\n", num_bytes, heap_listp);
     void *retval = NULL;
-    void *bp = NULL;
     if (num_bytes < global_heap_bytes) {
         global_heap_bytes -= num_bytes;
         retval = heap_listp + OVERHEAD;
         heap_listp += num_bytes;
-    } else if ((bp = mem_sbrk(num_bytes - global_heap_bytes)) != (void *)-1) { // TODO extend by at least MIN_SIZE every time
-        global_heap_bytes = 0; // TODO: adjust this number to != 0 when increasing by MIN_SIZE
+    } else if ((mem_sbrk(MAX(num_bytes - global_heap_bytes, MIN_SBRK_SIZE))) != (void *)-1) { // TODO extend by at least MIN_SIZE every time
+        // printf("Sbrk'd %d bytes\n", MAX(num_bytes - global_heap_bytes, MIN_SBRK_SIZE));
+        global_heap_bytes = MAX(num_bytes - global_heap_bytes, MIN_SBRK_SIZE) - num_bytes + global_heap_bytes; // TODO: adjust this number to != 0 when increasing by MIN_SIZE
         retval = heap_listp + OVERHEAD;
         heap_listp += num_bytes;
     } else {
@@ -249,7 +203,7 @@ void *global_heap_extend(size_t num_bytes) {
         return NULL;
     }
     // printf("Returning %p\n", retval + OVERHEAD);
-    pthread_mutex_unlock(&global_heap_lock);
+    pthread_spin_unlock(&global_heap_lock);
     PUT(HDRP(retval), PACK(num_bytes, 0));
     PUT(FTRP(retval), PACK(num_bytes, 0));
     return retval;
@@ -407,7 +361,6 @@ void *my_malloc(size_t size)
 {
     DEBUG_PRINTF("Malloc'ing %ld bytes\n", size);
     size_t asize; /* adjusted block size */
-    pthread_mutex_t *current_lock = NULL;
     char * bp = NULL;
 
     /* Ignore spurious requests */
@@ -458,6 +411,7 @@ int mm_init(void)
     if ((heap_listp = mem_sbrk(INITIAL_HEAP_SIZE)) == NULL) {
         return -1;
     }
+    pthread_spin_init(&global_heap_lock, PTHREAD_PROCESS_PRIVATE);
     global_heap_bytes = INITIAL_HEAP_SIZE;
     return 0;
 }
