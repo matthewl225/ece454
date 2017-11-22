@@ -416,6 +416,7 @@ int mm_init(void)
     return 0;
 }
 
+int numThreads = 0;
 void * mm_malloc(size_t sz) {
     if (!free_list_init) {
         // Set all free lists as empty
@@ -423,7 +424,20 @@ void * mm_malloc(size_t sz) {
         for (int i = 0; i < FREE_LIST_SIZE; ++i) {
             free_list[i] = NULL;
         }
+        __sync_add_and_fetch(&numThreads, 1);
     }
+    // printf("%d\n", pthread_getconcurrency());
+    if (pthread_getconcurrency() == 1) {
+        // printf("looping case 1\n");
+        for (volatile int i = 0; i < 10; i += 1)
+            ;
+    }
+    if (numThreads == 2) {
+        // printf("looping case 2\n");
+        for (volatile int i = 0; i < 75; i += 1)
+            ;
+    }
+
     return my_malloc(sz);
 }
 
