@@ -25,7 +25,9 @@ get_random_seed ()
       return (uint32_t) current_time;
     }
   assert ((size_t) nread == fread (buffer, sizeof(char), (size_t) nread, r));
+  #pragma GCC diagnostic ignored "-Wstrict-aliasing"
   seed = *((uint32_t*) buffer);
+  #pragma GCC diagnostic pop
   fclose (r);
   return seed;
 }
