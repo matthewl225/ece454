@@ -1,7 +1,7 @@
 teamName: xxx
-student1_fullName: xxx
-student1_studentNumber: 999
-student1_email: xxx@mail.utoronto.ca
-student2_fullName: xxx
-student2_studentNumber: 999
-student2_email: xxx@mail.utoronto.ca
+student1_fullName: Connor Smith
+student1_studentNumber: 1000421411
+student1_email: connor.smith@mail.utoronto.ca
+student2_fullName: Fan Guo
+student2_studentNumber: 1000626539
+student2_email: cfan.guo@mail.utoronto.ca
