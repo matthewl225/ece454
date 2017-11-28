@@ -17,7 +17,7 @@ char gamelogic_LUT[18] = {
   2, // 2: one neighbor, and I'm dead => stay dead, maintain neighbors
   2, // 3: one neighbor, and I'm alive => die, maintain neighbors
   4, // 4: 2 neighbors, and I'm dead => stay dead
-  0, // 5: 2 neighbors, and I'm alive => stay dead
+  5, // 5: 2 neighbors, and I'm alive => stay alive
   7, // 6: 3 neighbors, and I'm dead => become alive
   7, // 7: 3 neighbors, and I'm alive => stay alive
   8, // 8: 4 neighbors, and I'm dead => stay dead
@@ -32,6 +32,15 @@ char gamelogic_LUT[18] = {
   16, // 17: 8 neighbors, and I'm alive => die
 };
 
+void print_board(char *board, const int nrows, const int ncols) {
+  for (int i = 0; i < nrows; ++i) {
+    for (int j = 0; j < ncols; ++j) {
+      printf("%d\t", board[i*nrows + j]);
+    }
+    printf("\n");
+  }
+}
+
 void unformat_intermediary_board(char *board, const int nrows, const int ncols) {
   for (int row = 0; row < nrows; ++row) {
     for (int col = 0; col < ncols; ++col) {
@@ -43,13 +52,17 @@ void unformat_intermediary_board(char *board, const int nrows, const int ncols) 
 void format_intermediary_board(char *board, const int nrows, const int ncols) {
   int row, col;
   const int nrows_minus_1 = nrows - 1;
+  const int nrows_minus_2 = nrows - 2;
   const int ncols_minus_1 = ncols - 1;
+  const int ncols_minus_2 = ncols - 2;
   int neighborCount = 0;
 
   for (row = 0; row < nrows; ++row) {
     for (col = 0; col < ncols; ++col) {
       if (row == 0) {
+        // top
         if (col == 0) {
+          // top-left corner
           neighborCount = (board[nrows_minus_1 * nrows + 0] & 0x1) << 1;
           neighborCount += (board[nrows_minus_1 * nrows + 1] & 0x1) << 1;
           neighborCount += (board[nrows_minus_1 * nrows + ncols_minus_1] & 0x1) << 1;
@@ -58,8 +71,21 @@ void format_intermediary_board(char *board, const int nrows, const int ncols) {
           neighborCount += (board[1 * nrows + ncols_minus_1] & 0x1) << 1;
           neighborCount += (board[0 * nrows + 1] & 0x1) << 1;
           neighborCount += (board[0 * nrows + ncols_minus_1] & 0x1) << 1;
-          board[0 * nrows + 0] = neighborCount;
+          board[0 * nrows + 0] |= neighborCount;
+        } else if (col == ncols_minus_1) {
+          // top-right corner
+          neighborCount = (board[nrows_minus_1 * nrows + ncols_minus_1 - 1] & 0x1) << 1;
+          neighborCount += (board[nrows_minus_1 * nrows + ncols_minus_1] & 0x1) << 1;
+          neighborCount += (board[nrows_minus_1 * nrows + 0] & 0x1) << 1;
+          neighborCount += (board[0 * nrows + ncols_minus_1 - 1] & 0x1) << 1;
+          neighborCount += (board[0 * nrows + 0] & 0x1) << 1;
+          neighborCount += (board[1 * nrows + ncols_minus_1 - 1] & 0x1) << 1;
+          neighborCount += (board[1 * nrows + ncols_minus_1] & 0x1) << 1;
+          neighborCount += (board[1 * nrows + 0] & 0x1) << 1;
+          board[0 * nrows + ncols_minus_1] |= neighborCount;
+
         } else {
+          // top row, no corners
           neighborCount = (board[nrows_minus_1 * nrows + col - 1] & 0x1) << 1;
           neighborCount += (board[nrows_minus_1 * nrows + col] & 0x1) << 1;
           neighborCount += (board[nrows_minus_1 * nrows + col + 1] & 0x1) << 1;
@@ -68,9 +94,57 @@ void format_intermediary_board(char *board, const int nrows, const int ncols) {
           neighborCount += (board[1 * nrows + col + 1] & 0x1) << 1;
           neighborCount += (board[0 * nrows + col - 1] & 0x1) << 1;
           neighborCount += (board[0 * nrows + col + 1] & 0x1) << 1;
-          board[0 * nrows + col] = neighborCount;
+          board[0 * nrows + col] |= neighborCount;
         }
+      } else if (row == nrows_minus_1) {
+        // bottom row
+        if (col == 0) {
+          // bottom left corner
+          neighborCount = (board[nrows_minus_2 * nrows + ncols_minus_1] & 0x1) << 1;
+          neighborCount += (board[nrows_minus_2 * nrows + 0] & 0x1) << 1;
+          neighborCount += (board[nrows_minus_2 * nrows + 1] & 0x1) << 1;
+          neighborCount += (board[nrows_minus_1 * nrows + ncols_minus_1] & 0x1) << 1;
+          neighborCount += (board[nrows_minus_1 * nrows + 1] & 0x1) << 1;
+          neighborCount += (board[0 * nrows + ncols_minus_1] & 0x1) << 1;
+          neighborCount += (board[0 * nrows + 0] & 0x1) << 1;
+          neighborCount += (board[0 * nrows + 1] & 0x1) << 1;
+          board[nrows_minus_1 * nrows + 0] |= neighborCount;
+        } else if (col == ncols_minus_1) {
+          // bottom right corner
+          neighborCount = (board[nrows_minus_2 * nrows + ncols_minus_2] & 0x1) << 1;
+          neighborCount += (board[nrows_minus_2 * nrows + ncols_minus_1] & 0x1) << 1;
+          neighborCount += (board[nrows_minus_2 * nrows + 0] & 0x1) << 1;
+          neighborCount += (board[nrows_minus_1 * nrows + ncols_minus_2] & 0x1) << 1;
+          neighborCount += (board[nrows_minus_1 * nrows + 0] & 0x1) << 1;
+          neighborCount += (board[0 * nrows + ncols_minus_2] & 0x1) << 1;
+          neighborCount += (board[0 * nrows + ncols_minus_1] & 0x1) << 1;
+          neighborCount += (board[0 * nrows + 0] & 0x1) << 1;
+          board[nrows_minus_1 * nrows + ncols_minus_1] |= neighborCount;
+        } else {
+          // bottom row, no corners
+          neighborCount = (board[nrows_minus_2 * nrows + col - 1] & 0x1) << 1;
+          neighborCount += (board[nrows_minus_2 * nrows + col] & 0x1) << 1;
+          neighborCount += (board[nrows_minus_2 * nrows + col + 1] & 0x1) << 1;
+          neighborCount += (board[nrows_minus_1 * nrows + col - 1] & 0x1) << 1;
+          neighborCount += (board[nrows_minus_1 * nrows + col + 1] & 0x1) << 1;
+          neighborCount += (board[0 * nrows + col - 1] & 0x1) << 1;
+          neighborCount += (board[0 * nrows + col] & 0x1) << 1;
+          neighborCount += (board[0 * nrows + col + 1] & 0x1) << 1;
+          board[nrows_minus_1 * nrows + col] |= neighborCount;
+        }
+      } else if (col == ncols_minus_1) {
+        // right most column, no corners
+        neighborCount = (board[(row - 1) * nrows + ncols_minus_2] & 0x1) << 1;
+        neighborCount += (board[(row - 1) * nrows + ncols_minus_1] & 0x1) << 1;
+        neighborCount += (board[(row - 1) * nrows + 0] & 0x1) << 1;
+        neighborCount += (board[(row + 1) * nrows + ncols_minus_2] & 0x1) << 1;
+        neighborCount += (board[(row + 1) * nrows + ncols_minus_1] & 0x1) << 1;
+        neighborCount += (board[(row + 1) * nrows + 0] & 0x1) << 1;
+        neighborCount += (board[row * nrows + ncols_minus_2] & 0x1) << 1;
+        neighborCount += (board[row * nrows + 0] & 0x1) << 1;
+        board[row * nrows + ncols_minus_1] |= neighborCount;
       } else if (col == 0) {
+        // left most column, no corners
         neighborCount = (board[(row - 1) * nrows + 0] & 0x1) << 1;
         neighborCount += (board[(row - 1) * nrows + 1] & 0x1) << 1;
         neighborCount += (board[(row - 1) * nrows + ncols_minus_1] & 0x1) << 1;
@@ -79,8 +153,9 @@ void format_intermediary_board(char *board, const int nrows, const int ncols) {
         neighborCount += (board[(row + 1) * nrows + ncols_minus_1] & 0x1) << 1;
         neighborCount += (board[row * nrows + 1] & 0x1) << 1;
         neighborCount += (board[row * nrows + ncols_minus_1] & 0x1) << 1;
-        board[row * nrows + 0] = neighborCount;
+        board[row * nrows + 0] |= neighborCount;
       } else {
+        // inner square
         neighborCount = (board[(row - 1) * nrows + col - 1] & 0x1) << 1;
         neighborCount += (board[(row - 1) * nrows + col] & 0x1) << 1;
         neighborCount += (board[(row - 1) * nrows + col + 1] & 0x1) << 1;
@@ -89,10 +164,11 @@ void format_intermediary_board(char *board, const int nrows, const int ncols) {
         neighborCount += (board[(row + 1) * nrows + col + 1] & 0x1) << 1;
         neighborCount += (board[row * nrows + col - 1] & 0x1) << 1;
         neighborCount += (board[row * nrows + col + 1] & 0x1) << 1;
-        board[row * nrows + col] = neighborCount;
+        board[row * nrows + col] |= neighborCount;
       }
     }
   }
+  // print_board(board, nrows, ncols);
 }
 
 /*****************************************************************************
@@ -101,10 +177,10 @@ void format_intermediary_board(char *board, const int nrows, const int ncols) {
 // TODO write longs (4 chars) to reduce writebacks
 char*
 game_of_life (char* writeboard, 
-	      char* readboard,
-	      const int nrows,
-	      const int ncols,
-	      const int gens_max)
+        char* readboard,
+        const int nrows,
+        const int ncols,
+        const int gens_max)
 {
   const int nrows_minus_1 = nrows - 1;
   const int nrows_minus_2 = nrows - 2;
@@ -116,6 +192,7 @@ game_of_life (char* writeboard,
   char current_state, transition_state;
   format_intermediary_board(readboard, nrows, ncols);
   for (gen = 0; gen < gens_max; ++gen) {
+    memset(writeboard, 0, nrows*ncols);
     for (row = 0; row < nrows; ++row) {
       for (col = 0; col < ncols; ++col) {
         current_state = readboard[row * nrows + col];
@@ -163,7 +240,6 @@ game_of_life (char* writeboard,
             }
           } else if (row == nrows_minus_1) {
             if (col == 0) {
-              // TODO: bottom left corner
               writeboard[nrows_minus_2 * nrows + ncols_minus_1] += 2;
               writeboard[nrows_minus_2 * nrows + 0] += 2;
               writeboard[nrows_minus_2 * nrows + 1] += 2;
@@ -172,10 +248,8 @@ game_of_life (char* writeboard,
               writeboard[0 * nrows + ncols_minus_1] += 2;
               writeboard[0 * nrows + 0] += 2;
               writeboard[0 * nrows + 1] += 2;
-              // CHECKED
 
             } else if (col == ncols_minus_1) {
-              // TODO: bottom right corner
               writeboard[nrows_minus_2 * nrows + ncols_minus_1 - 1] += 2;
               writeboard[nrows_minus_2 * nrows + ncols_minus_1] += 2;
               writeboard[nrows_minus_2 * nrows + 0] += 2;
@@ -184,7 +258,6 @@ game_of_life (char* writeboard,
               writeboard[0 * nrows + ncols_minus_1 - 1] += 2;
               writeboard[0 * nrows + ncols_minus_1] += 2;
               writeboard[0 * nrows + 0] += 2;
-              // CHECKED
 
             } else {
               // TODO: bottom row
@@ -235,9 +308,9 @@ game_of_life (char* writeboard,
       }
       // reset this row in readboard for later use
       // TODO should do this before the barrier for the whole block when multithreading
-      memset(&readboard[row], 0, ncols);
     }
     // swap read and write boards;
+    // print_board(writeboard, nrows, ncols);
     tempboard = writeboard;
     writeboard = readboard;
     readboard = tempboard;

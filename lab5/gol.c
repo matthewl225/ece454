@@ -39,6 +39,7 @@ print_usage (const char argv0[])
 	   "\t<outfilename>:     file to which to save final board configuration;\n"
            "\t                   if not provided or just a single hyphen (-), then \n"
 	   "\t                   board is output to stdout\n"
+	   "\t[-s]:              Only run sequential code\n"
 	   "\n\n", argv0);
 }
 
@@ -69,7 +70,7 @@ main (int argc, char* argv[])
    */
   const int verifyp = DO_VERIFY;
   const int argc_min = 3;
-  const int argc_max = 4;
+  const int argc_max = 5;
 
   int gens_max = 0;
   char* inboard = NULL;
@@ -129,7 +130,13 @@ main (int argc, char* argv[])
 
   /* Create a second board for ping-ponging */
   outboard = make_board (nrows, ncols);
-
+  // only run sequential code and exit
+  if (argc == 5) {
+    printf("Only running seq code\n");
+    if (output != stdout && output!=stderr) fclose(output);
+    sequential_game_of_life(outboard, inboard, nrows, ncols, gens_max);
+    goto cleanup;
+  }
   /* If we want to verify the result, then make a third board and copy
      the initial state into it */
   if (verifyp)
@@ -157,7 +164,6 @@ main (int argc, char* argv[])
 	 could be either that inboard == final_board or that outboard
 	 == final_board */
       copy_board (outboard, final_board, nrows, ncols);
-
       /* Ping-pong between checkboard (contains the initial state) and
 	 inboard */
       final_board = sequential_game_of_life (inboard, checkboard, nrows, ncols, gens_max);
@@ -166,12 +172,16 @@ main (int argc, char* argv[])
 	printf ("Verification successful\n");
       else
 	{
-	  fprintf (stderr, "*** Verification failed! ***\n");
+          FILE* verify_output = fopen("outputs/last_verification.pbm", "w");
+          save_board(verify_output, final_board, nrows, ncols);
+          
+	  fprintf (stderr, "*** Verification failed! Output actual to output/last_verification.pbm***\n");
 	  exit (EXIT_FAILURE);
 	}
     }
 
   /* Clean up */
+cleanup:
   if (inboard != NULL)
     free (inboard);
   if (outboard != NULL)
