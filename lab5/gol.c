@@ -1,3 +1,12 @@
+/*
+teamName: Literally Dead
+student1_fullName: Connor Smith
+student1_studentNumber: 1000421411
+student1_email: connor.smith@mail.utoronto.ca
+student2_fullName: Fan Guo
+student2_studentNumber: 1000626539
+student2_email: cfan.guo@mail.utoronto.ca
+*/
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
@@ -111,9 +120,9 @@ main (int argc, char* argv[])
       exit (EXIT_FAILURE);
     }
 
-  if (argc < argc_max || 0 == strcmp (argv[3], "-"))
+  if (argc == 3 || 0 == strcmp (argv[3], "-")){
     output = stdout;
-  else
+  } else
     {
       output = fopen (argv[3], "w");
       if (output == NULL)

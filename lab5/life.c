@@ -25,7 +25,7 @@ typedef struct gol_thread_args {
   pthread_barrier_t *gen_barrier;
 } gol_thread_args_t;
   
-#define NUM_THREADS 4
+#define NUM_THREADS 8
 
 char gamelogic_LUT[18] = {
   0, // 0: zero neighbors, and I'm already dead => stay dead
