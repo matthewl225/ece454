@@ -4,12 +4,28 @@
  ****************************************************************************/
 #include "life.h"
 #include "util.h"
+#include <pthread.h>
 #include <string.h>
+#include <stdio.h>
 
 /*****************************************************************************
  * Helper function definitions
  ****************************************************************************/
-#define MAX_SIZE 10000;
+#define MAX_SIZE 10000
+
+typedef struct gol_thread_args {
+  char *writeboard;
+  char *readboard;
+  int startingRow;
+  int endingRow;
+  int ncols;
+  int nrows;
+  int gens_max;
+  int threadid;
+  pthread_barrier_t *gen_barrier;
+} gol_thread_args_t;
+  
+#define NUM_THREADS 4
 
 char gamelogic_LUT[18] = {
   0, // 0: zero neighbors, and I'm already dead => stay dead
@@ -33,6 +49,15 @@ char gamelogic_LUT[18] = {
 };
 
 void print_board(char *board, const int nrows, const int ncols) {
+  for (int i = 0; i < nrows; ++i) {
+    for (int j = 0; j < ncols; ++j) {
+      printf("%d\t", board[i*nrows + j] & 0x1);
+    }
+    printf("\n");
+  }
+}
+
+void raw_print_board(char *board, const int nrows, const int ncols) {
   for (int i = 0; i < nrows; ++i) {
     for (int j = 0; j < ncols; ++j) {
       printf("%d\t", board[i*nrows + j]);
@@ -171,6 +196,266 @@ void format_intermediary_board(char *board, const int nrows, const int ncols) {
   // print_board(board, nrows, ncols);
 }
 
+void* game_of_life_subproblem(void *input_args)
+{
+  gol_thread_args_t *args = (gol_thread_args_t*)input_args;
+  char *writeboard = args->writeboard;
+  char *readboard = args->readboard;
+
+  const int startingRow = args->startingRow;
+  const int endingRow = args->endingRow;
+  const int nrows = args->nrows;
+  const int ncols = args->ncols;
+  const int num_my_rows = endingRow - startingRow;
+  const int gens_max = args->gens_max;
+  const int myid = args->threadid;
+  pthread_barrier_t *gen_barrier = args->gen_barrier;
+
+
+  const int nrows_minus_1 = nrows - 1;
+  const int nrows_minus_2 = nrows - 2;
+  const int ncols_minus_1 = ncols - 1;
+
+  /*
+  printf("Started thread %d with args (\n", myid);
+  printf("\t writeboard: %p\n", writeboard);
+  printf("\t readboard: %p\n", readboard);
+  printf("\t startingRow: %d\n", startingRow);
+  printf("\t endingRow: %d\n", endingRow);
+  printf("\t ncols: %d\n", ncols);
+  printf("\t nrows: %d\n", nrows);
+  printf("\t num_my_rows: %d\n", num_my_rows);
+  printf("\t gens_max: %d\n", gens_max);
+  printf(")\n");
+  */
+
+  int gen, row, col;
+  char current_state, transition_state;
+  char *tempboard = NULL;
+  for (gen = 0; gen < gens_max; ++gen) {
+    // printf("%d: Memset'ing %p + %d = %p\n", myid, writeboard, startingRow*ncols, writeboard + startingRow*ncols);
+    memset(writeboard + startingRow*ncols, 0, num_my_rows*ncols);
+    pthread_barrier_wait(gen_barrier); // make sure the whole writeboard is zero'd before continuing
+    for (row = startingRow; row < endingRow; ++row) {
+      for (col = 0; col < ncols; ++col) {
+        current_state = readboard[row * nrows + col];
+        #pragma GCC diagnostic ignored "-Wchar-subscripts" // its ok to use a char to index here
+        transition_state = gamelogic_LUT[current_state];
+        #pragma GCC diagnostic pop
+        if (transition_state & 0x1) {
+          if (row == 0) {
+            if (col == 0) {
+              // top left corner
+              /*
+              writeboard[nrows_minus_1 * nrows + ncols_minus_1] += 2;
+              writeboard[nrows_minus_1 * nrows + 0] += 2;
+              writeboard[nrows_minus_1 * nrows + 1] += 2;
+              writeboard[0 * nrows + ncols_minus_1] += 2;
+              writeboard[0 * nrows + 1] += 2;
+              writeboard[1 * nrows + ncols_minus_1] += 2;
+              writeboard[1 * nrows + 0] += 2;
+              writeboard[1 * nrows + 1] += 2;
+              */
+              __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + ncols_minus_1], 2);
+              __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + 0], 2);
+              __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + 1], 2);
+              __sync_fetch_and_add(&writeboard[0 * nrows + ncols_minus_1], 2);
+              __sync_fetch_and_add(&writeboard[0 * nrows + 1], 2);
+              __sync_fetch_and_add(&writeboard[1 * nrows + ncols_minus_1], 2);
+              __sync_fetch_and_add(&writeboard[1 * nrows + 0], 2);
+              __sync_fetch_and_add(&writeboard[1 * nrows + 1], 2);
+              // CHECKED
+
+            } else if (col == ncols_minus_1) {
+              // top right corner
+              /*
+              writeboard[nrows_minus_1 * nrows + ncols_minus_1 - 1] += 2;
+              writeboard[nrows_minus_1 * nrows + ncols_minus_1] += 2;
+              writeboard[nrows_minus_1 * nrows + 0] += 2;
+              writeboard[0 * nrows + ncols_minus_1 - 1] += 2;
+              writeboard[0 * nrows + 0] += 2;
+              writeboard[1 * nrows + ncols_minus_1 - 1] += 2;
+              writeboard[1 * nrows + ncols_minus_1] += 2;
+              writeboard[1 * nrows + 0] += 2;
+              */
+              __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + ncols_minus_1 - 1], 2);
+              __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + ncols_minus_1], 2);
+              __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + 0], 2);
+              __sync_fetch_and_add(&writeboard[0 * nrows + ncols_minus_1 - 1], 2);
+              __sync_fetch_and_add(&writeboard[0 * nrows + 0], 2);
+              __sync_fetch_and_add(&writeboard[1 * nrows + ncols_minus_1 - 1], 2);
+              __sync_fetch_and_add(&writeboard[1 * nrows + ncols_minus_1], 2);
+              __sync_fetch_and_add(&writeboard[1 * nrows + 0], 2);
+              // CHECKED
+
+            } else {
+              // top row
+              /*
+              writeboard[nrows_minus_1 * nrows + col-1] += 2;
+              writeboard[nrows_minus_1 * nrows + col] += 2;
+              writeboard[nrows_minus_1 * nrows + col+1] += 2;
+              writeboard[0 * nrows + col-1] += 2;
+              writeboard[0 * nrows + col+1] += 2;
+              writeboard[1 * nrows + col-1] += 2;
+              writeboard[1 * nrows + col] += 2;
+              writeboard[1 * nrows + col+1] += 2;
+              */
+              __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + col-1], 2);
+              __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + col], 2);
+              __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + col+1], 2);
+              __sync_fetch_and_add(&writeboard[0 * nrows + col-1], 2);
+              __sync_fetch_and_add(&writeboard[0 * nrows + col+1], 2);
+              __sync_fetch_and_add(&writeboard[1 * nrows + col-1], 2);
+              __sync_fetch_and_add(&writeboard[1 * nrows + col], 2);
+              __sync_fetch_and_add(&writeboard[1 * nrows + col+1], 2);
+              // CHECKED
+
+            }
+          } else if (row == nrows_minus_1) {
+            if (col == 0) {
+              /*
+              writeboard[nrows_minus_2 * nrows + ncols_minus_1] += 2;
+              writeboard[nrows_minus_2 * nrows + 0] += 2;
+              writeboard[nrows_minus_2 * nrows + 1] += 2;
+              writeboard[nrows_minus_1 * nrows + ncols_minus_1] += 2;
+              writeboard[nrows_minus_1 * nrows + 1] += 2;
+              writeboard[0 * nrows + ncols_minus_1] += 2;
+              writeboard[0 * nrows + 0] += 2;
+              writeboard[0 * nrows + 1] += 2;
+              */
+              __sync_fetch_and_add(&writeboard[nrows_minus_2 * nrows + ncols_minus_1], 2);
+              __sync_fetch_and_add(&writeboard[nrows_minus_2 * nrows + 0], 2);
+              __sync_fetch_and_add(&writeboard[nrows_minus_2 * nrows + 1], 2);
+              __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + ncols_minus_1], 2);
+              __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + 1], 2);
+              __sync_fetch_and_add(&writeboard[0 * nrows + ncols_minus_1], 2);
+              __sync_fetch_and_add(&writeboard[0 * nrows + 0], 2);
+              __sync_fetch_and_add(&writeboard[0 * nrows + 1], 2);
+
+            } else if (col == ncols_minus_1) {
+              /*
+              writeboard[nrows_minus_2 * nrows + ncols_minus_1 - 1] += 2;
+              writeboard[nrows_minus_2 * nrows + ncols_minus_1] += 2;
+              writeboard[nrows_minus_2 * nrows + 0] += 2;
+              writeboard[nrows_minus_1 * nrows + ncols_minus_1 - 1] += 2;
+              writeboard[nrows_minus_1 * nrows + 0] += 2;
+              writeboard[0 * nrows + ncols_minus_1 - 1] += 2;
+              writeboard[0 * nrows + ncols_minus_1] += 2;
+              writeboard[0 * nrows + 0] += 2;
+              */
+              __sync_fetch_and_add(&writeboard[nrows_minus_2 * nrows + ncols_minus_1 - 1], 2);
+              __sync_fetch_and_add(&writeboard[nrows_minus_2 * nrows + ncols_minus_1], 2);
+              __sync_fetch_and_add(&writeboard[nrows_minus_2 * nrows + 0], 2);
+              __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + ncols_minus_1 - 1], 2);
+              __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + 0], 2);
+              __sync_fetch_and_add(&writeboard[0 * nrows + ncols_minus_1 - 1], 2);
+              __sync_fetch_and_add(&writeboard[0 * nrows + ncols_minus_1], 2);
+              __sync_fetch_and_add(&writeboard[0 * nrows + 0], 2);
+
+            } else {
+              /*
+              writeboard[nrows_minus_2 * nrows + col - 1] += 2;
+              writeboard[nrows_minus_2 * nrows + col] += 2;
+              writeboard[nrows_minus_2 * nrows + col + 1] += 2;
+              writeboard[nrows_minus_1 * nrows + col - 1] += 2;
+              writeboard[nrows_minus_1 * nrows + col + 1] += 2;
+              writeboard[0 * nrows + col - 1] += 2;
+              writeboard[0 * nrows + col] += 2;
+              writeboard[0 * nrows + col + 1] += 2;
+              */
+              __sync_fetch_and_add(&writeboard[nrows_minus_2 * nrows + col - 1], 2);
+              __sync_fetch_and_add(&writeboard[nrows_minus_2 * nrows + col], 2);
+              __sync_fetch_and_add(&writeboard[nrows_minus_2 * nrows + col + 1], 2);
+              __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + col - 1], 2);
+              __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + col + 1], 2);
+              __sync_fetch_and_add(&writeboard[0 * nrows + col - 1], 2);
+              __sync_fetch_and_add(&writeboard[0 * nrows + col], 2);
+              __sync_fetch_and_add(&writeboard[0 * nrows + col + 1], 2);
+            }
+          } else if (col == 0) {
+            // left side, no corners
+            // TODO: add more logic to avoid using sync_fetch_and_add everywhere, maybe compare against starting/endingRow?
+            // Or could do <calculate top row> <barrier> <calculate rest>
+            /*
+            writeboard[(row-1) * nrows + ncols_minus_1] += 2;
+            writeboard[(row-1) * nrows + 0] += 2;
+            writeboard[(row-1) * nrows + 1] += 2;
+            writeboard[row * nrows + ncols_minus_1] += 2;
+            writeboard[row * nrows + 1] += 2;
+            writeboard[(row+1) * nrows + ncols_minus_1] += 2;
+            writeboard[(row+1) * nrows + 0] += 2;
+            writeboard[(row+1) * nrows + 1] += 2;
+            */
+            __sync_fetch_and_add(&writeboard[(row-1) * nrows + ncols_minus_1], 2);
+            __sync_fetch_and_add(&writeboard[(row-1) * nrows + 0], 2);
+            __sync_fetch_and_add(&writeboard[(row-1) * nrows + 1], 2);
+            __sync_fetch_and_add(&writeboard[row * nrows + ncols_minus_1], 2);
+            __sync_fetch_and_add(&writeboard[row * nrows + 1], 2);
+            __sync_fetch_and_add(&writeboard[(row+1) * nrows + ncols_minus_1], 2);
+            __sync_fetch_and_add(&writeboard[(row+1) * nrows + 0], 2);
+            __sync_fetch_and_add(&writeboard[(row+1) * nrows + 1], 2);
+          } else if (col == ncols_minus_1) {
+            // right side, no corners
+            /*
+            writeboard[(row-1) * nrows + ncols_minus_1-1] += 2;
+            writeboard[(row-1) * nrows + ncols_minus_1] += 2;
+            writeboard[(row-1) * nrows + 0] += 2;
+            writeboard[row * nrows + ncols_minus_1-1] += 2;
+            writeboard[row * nrows + 0] += 2;
+            writeboard[(row+1) * nrows + ncols_minus_1-1] += 2;
+            writeboard[(row+1) * nrows + ncols_minus_1] += 2;
+            writeboard[(row+1) * nrows + 0] += 2;
+            */
+            __sync_fetch_and_add(&writeboard[(row-1) * nrows + ncols_minus_1-1], 2);
+            __sync_fetch_and_add(&writeboard[(row-1) * nrows + ncols_minus_1], 2);
+            __sync_fetch_and_add(&writeboard[(row-1) * nrows + 0], 2);
+            __sync_fetch_and_add(&writeboard[row * nrows + ncols_minus_1-1], 2);
+            __sync_fetch_and_add(&writeboard[row * nrows + 0], 2);
+            __sync_fetch_and_add(&writeboard[(row+1) * nrows + ncols_minus_1-1], 2);
+            __sync_fetch_and_add(&writeboard[(row+1) * nrows + ncols_minus_1], 2);
+            __sync_fetch_and_add(&writeboard[(row+1) * nrows + 0], 2);
+          } else {
+            // inner
+            /*
+            writeboard[(row-1) * nrows + col-1] += 2;
+            writeboard[(row-1) * nrows + col] += 2;
+            writeboard[(row-1) * nrows + col+1] += 2;
+            writeboard[row * nrows + col-1] += 2;
+            writeboard[row * nrows + col+1] += 2;
+            writeboard[(row+1) * nrows + col-1] += 2;
+            writeboard[(row+1) * nrows + col] += 2;
+            writeboard[(row+1) * nrows + col+1] += 2;
+            */
+            __sync_fetch_and_add(&writeboard[(row-1) * nrows + col-1], 2);
+            __sync_fetch_and_add(&writeboard[(row-1) * nrows + col], 2);
+            __sync_fetch_and_add(&writeboard[(row-1) * nrows + col+1], 2);
+            __sync_fetch_and_add(&writeboard[row * nrows + col-1], 2);
+            __sync_fetch_and_add(&writeboard[row * nrows + col+1], 2);
+            __sync_fetch_and_add(&writeboard[(row+1) * nrows + col-1], 2);
+            __sync_fetch_and_add(&writeboard[(row+1) * nrows + col], 2);
+            __sync_fetch_and_add(&writeboard[(row+1) * nrows + col+1], 2);
+          }
+          // __sync_fetch_and_or(&writeboard[row * nrows + col], 0x1); // set alive bit
+          // TODO might be unsafe?
+          writeboard[row * nrows + col] |= 0x1;
+        }
+      }
+    }
+    tempboard = writeboard;
+    writeboard = readboard;
+    readboard = tempboard;
+    pthread_barrier_wait(gen_barrier);
+    /*
+    if (myid == 0) {
+      printf("gen %d board: \n", gen);
+      // print_board(readboard, nrows, ncols);
+    }
+    pthread_barrier_wait(gen_barrier);
+    */
+  }
+  return NULL;
+}
+
 /*****************************************************************************
  * Game of life implementation
  ****************************************************************************/
@@ -182,141 +467,44 @@ game_of_life (char* writeboard,
         const int ncols,
         const int gens_max)
 {
-  const int nrows_minus_1 = nrows - 1;
-  const int nrows_minus_2 = nrows - 2;
-  const int ncols_minus_1 = ncols - 1;
   // spawn threads here
   // first pass establishes the expected intermediary format
-  char *tempboard;
-  int row, col, gen;
-  char current_state, transition_state;
+  pthread_t threads[NUM_THREADS-1];
+  gol_thread_args_t args[NUM_THREADS];
+  pthread_barrier_t gen_barrier;
+  pthread_barrier_init(&gen_barrier, NULL, NUM_THREADS);
   format_intermediary_board(readboard, nrows, ncols);
-  for (gen = 0; gen < gens_max; ++gen) {
-    memset(writeboard, 0, nrows*ncols);
-    for (row = 0; row < nrows; ++row) {
-      for (col = 0; col < ncols; ++col) {
-        current_state = readboard[row * nrows + col];
-        #pragma GCC diagnostic ignored "-Wchar-subscripts" // its ok to use a char to index here
-        transition_state = gamelogic_LUT[current_state];
-        #pragma GCC diagnostic pop
-        if (transition_state & 0x1) {
-          if (row == 0) {
-            if (col == 0) {
-              // top left corner
-              writeboard[nrows_minus_1 * nrows + ncols_minus_1] += 2;
-              writeboard[nrows_minus_1 * nrows + 0] += 2;
-              writeboard[nrows_minus_1 * nrows + 1] += 2;
-              writeboard[0 * nrows + ncols_minus_1] += 2;
-              writeboard[0 * nrows + 1] += 2;
-              writeboard[1 * nrows + ncols_minus_1] += 2;
-              writeboard[1 * nrows + 0] += 2;
-              writeboard[1 * nrows + 1] += 2;
-              // CHECKED
-
-            } else if (col == ncols_minus_1) {
-              // top right corner
-              writeboard[nrows_minus_1 * nrows + ncols_minus_1 - 1] += 2;
-              writeboard[nrows_minus_1 * nrows + ncols_minus_1] += 2;
-              writeboard[nrows_minus_1 * nrows + 0] += 2;
-              writeboard[0 * nrows + ncols_minus_1 - 1] += 2;
-              writeboard[0 * nrows + 0] += 2;
-              writeboard[1 * nrows + ncols_minus_1 - 1] += 2;
-              writeboard[1 * nrows + ncols_minus_1] += 2;
-              writeboard[1 * nrows + 0] += 2;
-              // CHECKED
-                
-            } else {
-              // top row
-              writeboard[nrows_minus_1 * nrows + col-1] += 2;
-              writeboard[nrows_minus_1 * nrows + col] += 2;
-              writeboard[nrows_minus_1 * nrows + col+1] += 2;
-              writeboard[0 * nrows + col-1] += 2;
-              writeboard[0 * nrows + col+1] += 2;
-              writeboard[1 * nrows + col-1] += 2;
-              writeboard[1 * nrows + col] += 2;
-              writeboard[1 * nrows + col+1] += 2;
-              // CHECKED
-
-            }
-          } else if (row == nrows_minus_1) {
-            if (col == 0) {
-              writeboard[nrows_minus_2 * nrows + ncols_minus_1] += 2;
-              writeboard[nrows_minus_2 * nrows + 0] += 2;
-              writeboard[nrows_minus_2 * nrows + 1] += 2;
-              writeboard[nrows_minus_1 * nrows + ncols_minus_1] += 2;
-              writeboard[nrows_minus_1 * nrows + 1] += 2;
-              writeboard[0 * nrows + ncols_minus_1] += 2;
-              writeboard[0 * nrows + 0] += 2;
-              writeboard[0 * nrows + 1] += 2;
-
-            } else if (col == ncols_minus_1) {
-              writeboard[nrows_minus_2 * nrows + ncols_minus_1 - 1] += 2;
-              writeboard[nrows_minus_2 * nrows + ncols_minus_1] += 2;
-              writeboard[nrows_minus_2 * nrows + 0] += 2;
-              writeboard[nrows_minus_1 * nrows + ncols_minus_1 - 1] += 2;
-              writeboard[nrows_minus_1 * nrows + 0] += 2;
-              writeboard[0 * nrows + ncols_minus_1 - 1] += 2;
-              writeboard[0 * nrows + ncols_minus_1] += 2;
-              writeboard[0 * nrows + 0] += 2;
-
-            } else {
-              // TODO: bottom row
-              writeboard[nrows_minus_2 * nrows + col - 1] += 2;
-              writeboard[nrows_minus_2 * nrows + col] += 2;
-              writeboard[nrows_minus_2 * nrows + col + 1] += 2;
-              writeboard[nrows_minus_1 * nrows + col - 1] += 2;
-              writeboard[nrows_minus_1 * nrows + col + 1] += 2;
-              writeboard[0 * nrows + col - 1] += 2;
-              writeboard[0 * nrows + col] += 2;
-              writeboard[0 * nrows + col + 1] += 2;
-            }
-          } else if (col == 0) {
-            // left side, no corners
-            writeboard[(row-1) * nrows + ncols_minus_1] += 2;
-            writeboard[(row-1) * nrows + 0] += 2;
-            writeboard[(row-1) * nrows + 1] += 2;
-            writeboard[row * nrows + ncols_minus_1] += 2;
-            writeboard[row * nrows + 1] += 2;
-            writeboard[(row+1) * nrows + ncols_minus_1] += 2;
-            writeboard[(row+1) * nrows + 0] += 2;
-            writeboard[(row+1) * nrows + 1] += 2;
-          } else if (col == ncols_minus_1) {
-            // right side, no corners
-            writeboard[(row-1) * nrows + ncols_minus_1-1] += 2;
-            writeboard[(row-1) * nrows + ncols_minus_1] += 2;
-            writeboard[(row-1) * nrows + 0] += 2;
-            writeboard[row * nrows + ncols_minus_1-1] += 2;
-            writeboard[row * nrows + 0] += 2;
-            writeboard[(row+1) * nrows + ncols_minus_1-1] += 2;
-            writeboard[(row+1) * nrows + ncols_minus_1] += 2;
-            writeboard[(row+1) * nrows + 0] += 2;
-          } else {
-            // inner
-            writeboard[(row-1) * nrows + col-1] += 2;
-            writeboard[(row-1) * nrows + col] += 2;
-            writeboard[(row-1) * nrows + col+1] += 2;
-            writeboard[row * nrows + col-1] += 2;
-            writeboard[row * nrows + col+1] += 2;
-            writeboard[(row+1) * nrows + col-1] += 2;
-            writeboard[(row+1) * nrows + col] += 2;
-            writeboard[(row+1) * nrows + col+1] += 2;
-          }
-          writeboard[row * nrows + col] |= 0x1; // set alive bit
-        } else {
-          writeboard[row * nrows + col] &= ~0x1; // clear alive bit
-        }
-      }
-      // reset this row in readboard for later use
-      // TODO should do this before the barrier for the whole block when multithreading
-    }
-    // swap read and write boards;
-    // print_board(writeboard, nrows, ncols);
-    tempboard = writeboard;
-    writeboard = readboard;
-    readboard = tempboard;
+  // print_board(readboard, nrows, ncols);
+  int i = 0;
+  args[i].writeboard = writeboard;
+  args[i].readboard = readboard;
+  args[i].startingRow = i * nrows/NUM_THREADS;
+  args[i].endingRow = (i+1) * nrows/NUM_THREADS;
+  args[i].ncols = ncols;
+  args[i].nrows = nrows;
+  args[i].gens_max = gens_max;
+  args[i].threadid = i;
+  args[i].gen_barrier = &gen_barrier;
+  for (int i = 1; i < NUM_THREADS; ++i) {
+    args[i].writeboard = writeboard;
+    args[i].readboard = readboard;
+    args[i].startingRow = i * nrows/NUM_THREADS;
+    args[i].endingRow = (i+1) * nrows/NUM_THREADS;
+    args[i].ncols = ncols;
+    args[i].nrows = nrows;
+    args[i].gens_max = gens_max;
+    args[i].threadid = i;
+    args[i].gen_barrier = &gen_barrier;
+    pthread_create(&threads[i-1], NULL, game_of_life_subproblem, &args[i]);
+  }
+  game_of_life_subproblem(&args[0]); // use this thread as the first thread
+  for (int i = 1; i < NUM_THREADS; ++i) {
+    pthread_join(threads[i-1], NULL);
   }
   // last pass
   // readboard always holds the last computed state
-  unformat_intermediary_board(readboard, nrows, ncols);
-  return readboard;
+  char *outboard = gens_max % 2 ? writeboard : readboard;
+  // print_board(outboard, nrows, ncols);
+  unformat_intermediary_board(outboard, nrows, ncols);
+  return outboard;
 }
