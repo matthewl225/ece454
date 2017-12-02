@@ -203,6 +203,7 @@ void* game_of_life_subproblem(void *input_args)
   char *readboard = args->readboard;
 
   const int startingRow = args->startingRow;
+  const int startingRow_plus_1 = startingRow + 1;
   const int endingRow = args->endingRow;
   const int nrows = args->nrows;
   const int ncols = args->ncols;
@@ -246,7 +247,6 @@ void* game_of_life_subproblem(void *input_args)
           if (row == 0) {
             if (col == 0) {
               // top left corner
-              /*
               writeboard[nrows_minus_1 * nrows + ncols_minus_1] += 2;
               writeboard[nrows_minus_1 * nrows + 0] += 2;
               writeboard[nrows_minus_1 * nrows + 1] += 2;
@@ -255,7 +255,7 @@ void* game_of_life_subproblem(void *input_args)
               writeboard[1 * nrows + ncols_minus_1] += 2;
               writeboard[1 * nrows + 0] += 2;
               writeboard[1 * nrows + 1] += 2;
-              */
+              /*
               __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + ncols_minus_1], 2);
               __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + 0], 2);
               __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + 1], 2);
@@ -264,11 +264,11 @@ void* game_of_life_subproblem(void *input_args)
               __sync_fetch_and_add(&writeboard[1 * nrows + ncols_minus_1], 2);
               __sync_fetch_and_add(&writeboard[1 * nrows + 0], 2);
               __sync_fetch_and_add(&writeboard[1 * nrows + 1], 2);
+              */
               // CHECKED
 
             } else if (col == ncols_minus_1) {
               // top right corner
-              /*
               writeboard[nrows_minus_1 * nrows + ncols_minus_1 - 1] += 2;
               writeboard[nrows_minus_1 * nrows + ncols_minus_1] += 2;
               writeboard[nrows_minus_1 * nrows + 0] += 2;
@@ -277,7 +277,7 @@ void* game_of_life_subproblem(void *input_args)
               writeboard[1 * nrows + ncols_minus_1 - 1] += 2;
               writeboard[1 * nrows + ncols_minus_1] += 2;
               writeboard[1 * nrows + 0] += 2;
-              */
+              /*
               __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + ncols_minus_1 - 1], 2);
               __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + ncols_minus_1], 2);
               __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + 0], 2);
@@ -286,11 +286,11 @@ void* game_of_life_subproblem(void *input_args)
               __sync_fetch_and_add(&writeboard[1 * nrows + ncols_minus_1 - 1], 2);
               __sync_fetch_and_add(&writeboard[1 * nrows + ncols_minus_1], 2);
               __sync_fetch_and_add(&writeboard[1 * nrows + 0], 2);
+              */
               // CHECKED
 
             } else {
               // top row
-              /*
               writeboard[nrows_minus_1 * nrows + col-1] += 2;
               writeboard[nrows_minus_1 * nrows + col] += 2;
               writeboard[nrows_minus_1 * nrows + col+1] += 2;
@@ -299,7 +299,7 @@ void* game_of_life_subproblem(void *input_args)
               writeboard[1 * nrows + col-1] += 2;
               writeboard[1 * nrows + col] += 2;
               writeboard[1 * nrows + col+1] += 2;
-              */
+              /*
               __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + col-1], 2);
               __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + col], 2);
               __sync_fetch_and_add(&writeboard[nrows_minus_1 * nrows + col+1], 2);
@@ -308,12 +308,12 @@ void* game_of_life_subproblem(void *input_args)
               __sync_fetch_and_add(&writeboard[1 * nrows + col-1], 2);
               __sync_fetch_and_add(&writeboard[1 * nrows + col], 2);
               __sync_fetch_and_add(&writeboard[1 * nrows + col+1], 2);
+              */
               // CHECKED
 
             }
           } else if (row == nrows_minus_1) {
             if (col == 0) {
-              /*
               writeboard[nrows_minus_2 * nrows + ncols_minus_1] += 2;
               writeboard[nrows_minus_2 * nrows + 0] += 2;
               writeboard[nrows_minus_2 * nrows + 1] += 2;
@@ -322,7 +322,7 @@ void* game_of_life_subproblem(void *input_args)
               writeboard[0 * nrows + ncols_minus_1] += 2;
               writeboard[0 * nrows + 0] += 2;
               writeboard[0 * nrows + 1] += 2;
-              */
+              /*
               __sync_fetch_and_add(&writeboard[nrows_minus_2 * nrows + ncols_minus_1], 2);
               __sync_fetch_and_add(&writeboard[nrows_minus_2 * nrows + 0], 2);
               __sync_fetch_and_add(&writeboard[nrows_minus_2 * nrows + 1], 2);
@@ -331,9 +331,8 @@ void* game_of_life_subproblem(void *input_args)
               __sync_fetch_and_add(&writeboard[0 * nrows + ncols_minus_1], 2);
               __sync_fetch_and_add(&writeboard[0 * nrows + 0], 2);
               __sync_fetch_and_add(&writeboard[0 * nrows + 1], 2);
-
+              */
             } else if (col == ncols_minus_1) {
-              /*
               writeboard[nrows_minus_2 * nrows + ncols_minus_1 - 1] += 2;
               writeboard[nrows_minus_2 * nrows + ncols_minus_1] += 2;
               writeboard[nrows_minus_2 * nrows + 0] += 2;
@@ -342,7 +341,7 @@ void* game_of_life_subproblem(void *input_args)
               writeboard[0 * nrows + ncols_minus_1 - 1] += 2;
               writeboard[0 * nrows + ncols_minus_1] += 2;
               writeboard[0 * nrows + 0] += 2;
-              */
+              /*
               __sync_fetch_and_add(&writeboard[nrows_minus_2 * nrows + ncols_minus_1 - 1], 2);
               __sync_fetch_and_add(&writeboard[nrows_minus_2 * nrows + ncols_minus_1], 2);
               __sync_fetch_and_add(&writeboard[nrows_minus_2 * nrows + 0], 2);
@@ -351,9 +350,9 @@ void* game_of_life_subproblem(void *input_args)
               __sync_fetch_and_add(&writeboard[0 * nrows + ncols_minus_1 - 1], 2);
               __sync_fetch_and_add(&writeboard[0 * nrows + ncols_minus_1], 2);
               __sync_fetch_and_add(&writeboard[0 * nrows + 0], 2);
+              */
 
             } else {
-              /*
               writeboard[nrows_minus_2 * nrows + col - 1] += 2;
               writeboard[nrows_minus_2 * nrows + col] += 2;
               writeboard[nrows_minus_2 * nrows + col + 1] += 2;
@@ -362,7 +361,7 @@ void* game_of_life_subproblem(void *input_args)
               writeboard[0 * nrows + col - 1] += 2;
               writeboard[0 * nrows + col] += 2;
               writeboard[0 * nrows + col + 1] += 2;
-              */
+              /*
               __sync_fetch_and_add(&writeboard[nrows_minus_2 * nrows + col - 1], 2);
               __sync_fetch_and_add(&writeboard[nrows_minus_2 * nrows + col], 2);
               __sync_fetch_and_add(&writeboard[nrows_minus_2 * nrows + col + 1], 2);
@@ -371,12 +370,12 @@ void* game_of_life_subproblem(void *input_args)
               __sync_fetch_and_add(&writeboard[0 * nrows + col - 1], 2);
               __sync_fetch_and_add(&writeboard[0 * nrows + col], 2);
               __sync_fetch_and_add(&writeboard[0 * nrows + col + 1], 2);
+              */
             }
           } else if (col == 0) {
             // left side, no corners
             // TODO: add more logic to avoid using sync_fetch_and_add everywhere, maybe compare against starting/endingRow?
             // Or could do <calculate top row> <barrier> <calculate rest>
-            /*
             writeboard[(row-1) * nrows + ncols_minus_1] += 2;
             writeboard[(row-1) * nrows + 0] += 2;
             writeboard[(row-1) * nrows + 1] += 2;
@@ -385,7 +384,7 @@ void* game_of_life_subproblem(void *input_args)
             writeboard[(row+1) * nrows + ncols_minus_1] += 2;
             writeboard[(row+1) * nrows + 0] += 2;
             writeboard[(row+1) * nrows + 1] += 2;
-            */
+            /*
             __sync_fetch_and_add(&writeboard[(row-1) * nrows + ncols_minus_1], 2);
             __sync_fetch_and_add(&writeboard[(row-1) * nrows + 0], 2);
             __sync_fetch_and_add(&writeboard[(row-1) * nrows + 1], 2);
@@ -394,9 +393,9 @@ void* game_of_life_subproblem(void *input_args)
             __sync_fetch_and_add(&writeboard[(row+1) * nrows + ncols_minus_1], 2);
             __sync_fetch_and_add(&writeboard[(row+1) * nrows + 0], 2);
             __sync_fetch_and_add(&writeboard[(row+1) * nrows + 1], 2);
+            */
           } else if (col == ncols_minus_1) {
             // right side, no corners
-            /*
             writeboard[(row-1) * nrows + ncols_minus_1-1] += 2;
             writeboard[(row-1) * nrows + ncols_minus_1] += 2;
             writeboard[(row-1) * nrows + 0] += 2;
@@ -405,7 +404,7 @@ void* game_of_life_subproblem(void *input_args)
             writeboard[(row+1) * nrows + ncols_minus_1-1] += 2;
             writeboard[(row+1) * nrows + ncols_minus_1] += 2;
             writeboard[(row+1) * nrows + 0] += 2;
-            */
+            /*
             __sync_fetch_and_add(&writeboard[(row-1) * nrows + ncols_minus_1-1], 2);
             __sync_fetch_and_add(&writeboard[(row-1) * nrows + ncols_minus_1], 2);
             __sync_fetch_and_add(&writeboard[(row-1) * nrows + 0], 2);
@@ -414,9 +413,9 @@ void* game_of_life_subproblem(void *input_args)
             __sync_fetch_and_add(&writeboard[(row+1) * nrows + ncols_minus_1-1], 2);
             __sync_fetch_and_add(&writeboard[(row+1) * nrows + ncols_minus_1], 2);
             __sync_fetch_and_add(&writeboard[(row+1) * nrows + 0], 2);
+            */
           } else {
             // inner
-            /*
             writeboard[(row-1) * nrows + col-1] += 2;
             writeboard[(row-1) * nrows + col] += 2;
             writeboard[(row-1) * nrows + col+1] += 2;
@@ -425,7 +424,7 @@ void* game_of_life_subproblem(void *input_args)
             writeboard[(row+1) * nrows + col-1] += 2;
             writeboard[(row+1) * nrows + col] += 2;
             writeboard[(row+1) * nrows + col+1] += 2;
-            */
+            /*
             __sync_fetch_and_add(&writeboard[(row-1) * nrows + col-1], 2);
             __sync_fetch_and_add(&writeboard[(row-1) * nrows + col], 2);
             __sync_fetch_and_add(&writeboard[(row-1) * nrows + col+1], 2);
@@ -434,11 +433,16 @@ void* game_of_life_subproblem(void *input_args)
             __sync_fetch_and_add(&writeboard[(row+1) * nrows + col-1], 2);
             __sync_fetch_and_add(&writeboard[(row+1) * nrows + col], 2);
             __sync_fetch_and_add(&writeboard[(row+1) * nrows + col+1], 2);
+            */
           }
           // __sync_fetch_and_or(&writeboard[row * nrows + col], 0x1); // set alive bit
           // TODO might be unsafe?
           writeboard[row * nrows + col] |= 0x1;
         }
+      }
+      // everyone must complete their first two rows before continuing to avoid conflicting adds
+      if (row == startingRow_plus_1) {
+        pthread_barrier_wait(gen_barrier);
       }
     }
     tempboard = writeboard;
@@ -485,7 +489,7 @@ game_of_life (char* writeboard,
   args[i].gens_max = gens_max;
   args[i].threadid = i;
   args[i].gen_barrier = &gen_barrier;
-  for (int i = 1; i < NUM_THREADS; ++i) {
+  for (i = 1; i < NUM_THREADS; ++i) {
     args[i].writeboard = writeboard;
     args[i].readboard = readboard;
     args[i].startingRow = i * nrows/NUM_THREADS;
@@ -498,13 +502,13 @@ game_of_life (char* writeboard,
     pthread_create(&threads[i-1], NULL, game_of_life_subproblem, &args[i]);
   }
   game_of_life_subproblem(&args[0]); // use this thread as the first thread
-  for (int i = 1; i < NUM_THREADS; ++i) {
+  for (i = 1; i < NUM_THREADS; ++i) {
     pthread_join(threads[i-1], NULL);
   }
   // last pass
   // readboard always holds the last computed state
   char *outboard = gens_max % 2 ? writeboard : readboard;
   // print_board(outboard, nrows, ncols);
-  unformat_intermediary_board(outboard, nrows, ncols);
+  //unformat_intermediary_board(outboard, nrows, ncols);
   return outboard;
 }

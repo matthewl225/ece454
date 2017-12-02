@@ -65,7 +65,7 @@ boards_equalp (const char b1[], const char b2[], const int nrows, const int ncol
 {
   int i;
   for (i = 0; i < nrows * ncols; i++)
-    if (b1[i] != b2[i])
+    if ((b1[i] & 0x1) != (b2[i] & 0x1))
       return 0;
 
   return 1;
