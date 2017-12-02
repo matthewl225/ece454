@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 /*****************************************************************************
  * life.c
  * Parallelized and optimized implementation of the game of life resides here
@@ -7,6 +8,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <stdio.h>
+#include <sched.h>
 
 /*****************************************************************************
  * Helper function definitions
@@ -211,6 +213,12 @@ void* game_of_life_subproblem(void *input_args)
   const int gens_max = args->gens_max;
   const int myid = args->threadid;
   pthread_barrier_t *gen_barrier = args->gen_barrier;
+
+  // pin this thread
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+  CPU_SET(myid, &cpuset);
+  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
 
   const int nrows_minus_1 = nrows - 1;
