@@ -1,4 +1,4 @@
-teamName: xxx
+teamName: ☠️☠️☠️☠️☠️
 student1_fullName: Connor Smith
 student1_studentNumber: 1000421411
 student1_email: connor.smith@mail.utoronto.ca
