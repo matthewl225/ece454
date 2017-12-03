@@ -69,122 +69,44 @@ void raw_print_board(char *board, const int nrows, const int ncols) {
 }
 
 void format_intermediary_board(char *board, const int nrows, const int ncols) {
-  int row, col;
   const int nrows_minus_1 = nrows - 1;
-  const int nrows_minus_2 = nrows - 2;
   const int ncols_minus_1 = ncols - 1;
-  const int ncols_minus_2 = ncols - 2;
+
+  int row, col;
+  int right_col, left_col;
+  int above_row_offset = (nrows_minus_1 - 1) * ncols;
+  int below_row_offset = 0;
+  int row_offset = -ncols;
   int neighborCount = 0;
 
   for (row = 0; row < nrows; ++row) {
+    above_row_offset += ncols;
+    below_row_offset += ncols;
+    row_offset += ncols;
+    if (row == 1) {
+      above_row_offset = 0;
+    } else if (row == nrows_minus_1) {
+      below_row_offset = 0;
+    }
+    left_col = ncols_minus_1 - 1;
+    right_col = 0;
     for (col = 0; col < ncols; ++col) {
-      if (row == 0) {
-        // top
-        if (col == 0) {
-          // top-left corner
-          neighborCount = (board[nrows_minus_1 * nrows + 0]) << 1;
-          neighborCount += (board[nrows_minus_1 * nrows + 1]) << 1;
-          neighborCount += (board[nrows_minus_1 * nrows + ncols_minus_1]) << 1;
-          neighborCount += (board[nrows]) << 1;
-          neighborCount += (board[nrows + 1]) << 1;
-          neighborCount += (board[nrows + ncols_minus_1]) << 1;
-          neighborCount += (board[1]) << 1;
-          neighborCount += (board[ncols_minus_1]) << 1;
-          board[0 * nrows + 0] |= neighborCount;
-        } else if (col == ncols_minus_1) {
-          // top-right corner
-          neighborCount = (board[nrows_minus_1 * nrows + ncols_minus_2]) << 1;
-          neighborCount += (board[nrows_minus_1 * nrows + ncols_minus_1]) << 1;
-          neighborCount += (board[nrows_minus_1 * nrows + 0]) << 1;
-          neighborCount += (board[ncols_minus_2]) << 1;
-          neighborCount += (board[0]) << 1;
-          neighborCount += (board[nrows + ncols_minus_2]) << 1;
-          neighborCount += (board[nrows + ncols_minus_1]) << 1;
-          neighborCount += (board[nrows]) << 1;
-          board[0 * nrows + ncols_minus_1] |= neighborCount;
-
-        } else {
-          // top row, no corners
-          neighborCount = (board[nrows_minus_1 * nrows + col - 1]) << 1;
-          neighborCount += (board[nrows_minus_1 * nrows + col]) << 1;
-          neighborCount += (board[nrows_minus_1 * nrows + col + 1]) << 1;
-          neighborCount += (board[nrows + col - 1]) << 1;
-          neighborCount += (board[nrows + col]) << 1;
-          neighborCount += (board[nrows + col + 1]) << 1;
-          neighborCount += (board[col - 1]) << 1;
-          neighborCount += (board[col + 1]) << 1;
-          board[col] |= neighborCount;
-        }
-      } else if (row == nrows_minus_1) {
-        // bottom row
-        if (col == 0) {
-          // bottom left corner
-          neighborCount = (board[nrows_minus_2 * nrows + ncols_minus_1]) << 1;
-          neighborCount += (board[nrows_minus_2 * nrows + 0]) << 1;
-          neighborCount += (board[nrows_minus_2 * nrows + 1]) << 1;
-          neighborCount += (board[nrows_minus_1 * nrows + ncols_minus_1]) << 1;
-          neighborCount += (board[nrows_minus_1 * nrows + 1]) << 1;
-          neighborCount += (board[ncols_minus_1]) << 1;
-          neighborCount += (board[0]) << 1;
-          neighborCount += (board[1]) << 1;
-          board[nrows_minus_1 * nrows + 0] |= neighborCount;
-        } else if (col == ncols_minus_1) {
-          // bottom right corner
-          neighborCount = (board[nrows_minus_2 * nrows + ncols_minus_2]) << 1;
-          neighborCount += (board[nrows_minus_2 * nrows + ncols_minus_1]) << 1;
-          neighborCount += (board[nrows_minus_2 * nrows + 0]) << 1;
-          neighborCount += (board[nrows_minus_1 * nrows + ncols_minus_2]) << 1;
-          neighborCount += (board[nrows_minus_1 * nrows + 0]) << 1;
-          neighborCount += (board[ncols_minus_2]) << 1;
-          neighborCount += (board[ncols_minus_1]) << 1;
-          neighborCount += (board[0]) << 1;
-          board[nrows_minus_1 * nrows + ncols_minus_1] |= neighborCount;
-        } else {
-          // bottom row, no corners
-          neighborCount = (board[nrows_minus_2 * nrows + col - 1]) << 1;
-          neighborCount += (board[nrows_minus_2 * nrows + col]) << 1;
-          neighborCount += (board[nrows_minus_2 * nrows + col + 1]) << 1;
-          neighborCount += (board[nrows_minus_1 * nrows + col - 1]) << 1;
-          neighborCount += (board[nrows_minus_1 * nrows + col + 1]) << 1;
-          neighborCount += (board[col - 1]) << 1;
-          neighborCount += (board[col]) << 1;
-          neighborCount += (board[col + 1]) << 1;
-          board[nrows_minus_1 * nrows + col] |= neighborCount;
-        }
+      ++left_col;
+      ++right_col;
+      if (col == 1) {
+        left_col = 0;
       } else if (col == ncols_minus_1) {
-        // right most column, no corners
-        neighborCount = (board[(row - 1) * nrows + ncols_minus_2]) << 1;
-        neighborCount += (board[(row - 1) * nrows + ncols_minus_1]) << 1;
-        neighborCount += (board[(row - 1) * nrows + 0]) << 1;
-        neighborCount += (board[(row + 1) * nrows + ncols_minus_2]) << 1;
-        neighborCount += (board[(row + 1) * nrows + ncols_minus_1]) << 1;
-        neighborCount += (board[(row + 1) * nrows + 0]) << 1;
-        neighborCount += (board[row * nrows + ncols_minus_2]) << 1;
-        neighborCount += (board[row * nrows + 0]) << 1;
-        board[row * nrows + ncols_minus_1] |= neighborCount;
-      } else if (col == 0) {
-        // left most column, no corners
-        neighborCount = (board[(row - 1) * nrows + 0]) << 1;
-        neighborCount += (board[(row - 1) * nrows + 1]) << 1;
-        neighborCount += (board[(row - 1) * nrows + ncols_minus_1]) << 1;
-        neighborCount += (board[(row + 1) * nrows + 0]) << 1;
-        neighborCount += (board[(row + 1) * nrows + 1]) << 1;
-        neighborCount += (board[(row + 1) * nrows + ncols_minus_1]) << 1;
-        neighborCount += (board[row * nrows + 1]) << 1;
-        neighborCount += (board[row * nrows + ncols_minus_1]) << 1;
-        board[row * nrows + 0] |= neighborCount;
-      } else {
-        // inner square
-        neighborCount = (board[(row - 1) * nrows + col - 1]) << 1;
-        neighborCount += (board[(row - 1) * nrows + col]) << 1;
-        neighborCount += (board[(row - 1) * nrows + col + 1]) << 1;
-        neighborCount += (board[(row + 1) * nrows + col - 1]) << 1;
-        neighborCount += (board[(row + 1) * nrows + col]) << 1;
-        neighborCount += (board[(row + 1) * nrows + col + 1]) << 1;
-        neighborCount += (board[row * nrows + col - 1]) << 1;
-        neighborCount += (board[row * nrows + col + 1]) << 1;
-        board[row * nrows + col] |= neighborCount;
+        right_col = 0;
       }
+      neighborCount = (board[above_row_offset + left_col] & 0x1) << 1;
+      neighborCount += (board[above_row_offset + col] & 0x1) << 1;
+      neighborCount += (board[above_row_offset + right_col] & 0x1) << 1;
+      neighborCount += (board[below_row_offset + left_col] & 0x1) << 1;
+      neighborCount += (board[below_row_offset + col] & 0x1) << 1;
+      neighborCount += (board[below_row_offset + right_col] & 0x1) << 1;
+      neighborCount += (board[row_offset + left_col] & 0x1) << 1;
+      neighborCount += (board[row_offset + right_col] & 0x1) << 1;
+      if (neighborCount) board[row_offset + col] |= neighborCount;
     }
   }
 }
