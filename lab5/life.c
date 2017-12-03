@@ -159,32 +159,32 @@ void* game_of_life_subproblem(void *input_args)
               writeboard[nrows_minus_1 * nrows + ncols_minus_1] += 2;
               writeboard[nrows_minus_1 * nrows + 0] += 2;
               writeboard[nrows_minus_1 * nrows + 1] += 2;
-              writeboard[0 * nrows + ncols_minus_1] += 2;
-              writeboard[0 * nrows + 1] += 2;
-              writeboard[1 * nrows + ncols_minus_1] += 2;
-              writeboard[1 * nrows + 0] += 2;
-              writeboard[1 * nrows + 1] += 2;
+              writeboard[ncols_minus_1] += 2;
+              writeboard[1] += 2;
+              writeboard[nrows + ncols_minus_1] += 2;
+              writeboard[nrows] += 2;
+              writeboard[nrows + 1] += 2;
             } else if (col == ncols_minus_1) {
               // top right corner
               writeboard[nrows_minus_1 * nrows + ncols_minus_1 - 1] += 2;
               writeboard[nrows_minus_1 * nrows + ncols_minus_1] += 2;
               writeboard[nrows_minus_1 * nrows + 0] += 2;
-              writeboard[0 * nrows + ncols_minus_1 - 1] += 2;
-              writeboard[0 * nrows + 0] += 2;
-              writeboard[1 * nrows + ncols_minus_1 - 1] += 2;
-              writeboard[1 * nrows + ncols_minus_1] += 2;
-              writeboard[1 * nrows + 0] += 2;
+              writeboard[ncols_minus_1 - 1] += 2;
+              writeboard[0] += 2;
+              writeboard[nrows + ncols_minus_1 - 1] += 2;
+              writeboard[nrows + ncols_minus_1] += 2;
+              writeboard[nrows] += 2;
 
             } else {
               // top row
               writeboard[nrows_minus_1 * nrows + col-1] += 2;
               writeboard[nrows_minus_1 * nrows + col] += 2;
               writeboard[nrows_minus_1 * nrows + col+1] += 2;
-              writeboard[0 * nrows + col-1] += 2;
-              writeboard[0 * nrows + col+1] += 2;
-              writeboard[1 * nrows + col-1] += 2;
-              writeboard[1 * nrows + col] += 2;
-              writeboard[1 * nrows + col+1] += 2;
+              writeboard[col-1] += 2;
+              writeboard[col+1] += 2;
+              writeboard[nrows + col-1] += 2;
+              writeboard[nrows + col] += 2;
+              writeboard[nrows + col+1] += 2;
             }
           } else if (row == nrows_minus_1) {
             if (col == 0) {
@@ -193,48 +193,48 @@ void* game_of_life_subproblem(void *input_args)
               writeboard[nrows_minus_2 * nrows + 1] += 2;
               writeboard[nrows_minus_1 * nrows + ncols_minus_1] += 2;
               writeboard[nrows_minus_1 * nrows + 1] += 2;
-              writeboard[0 * nrows + ncols_minus_1] += 2;
-              writeboard[0 * nrows + 0] += 2;
-              writeboard[0 * nrows + 1] += 2;
+              writeboard[ncols_minus_1] += 2;
+              writeboard[0] += 2;
+              writeboard[1] += 2;
             } else if (col == ncols_minus_1) {
               writeboard[nrows_minus_2 * nrows + ncols_minus_1 - 1] += 2;
               writeboard[nrows_minus_2 * nrows + ncols_minus_1] += 2;
               writeboard[nrows_minus_2 * nrows + 0] += 2;
               writeboard[nrows_minus_1 * nrows + ncols_minus_1 - 1] += 2;
               writeboard[nrows_minus_1 * nrows + 0] += 2;
-              writeboard[0 * nrows + ncols_minus_1 - 1] += 2;
-              writeboard[0 * nrows + ncols_minus_1] += 2;
-              writeboard[0 * nrows + 0] += 2;
+              writeboard[ncols_minus_1 - 1] += 2;
+              writeboard[ncols_minus_1] += 2;
+              writeboard[0] += 2;
             } else {
               writeboard[nrows_minus_2 * nrows + col - 1] += 2;
               writeboard[nrows_minus_2 * nrows + col] += 2;
               writeboard[nrows_minus_2 * nrows + col + 1] += 2;
               writeboard[nrows_minus_1 * nrows + col - 1] += 2;
               writeboard[nrows_minus_1 * nrows + col + 1] += 2;
-              writeboard[0 * nrows + col - 1] += 2;
-              writeboard[0 * nrows + col] += 2;
-              writeboard[0 * nrows + col + 1] += 2;
+              writeboard[col - 1] += 2;
+              writeboard[col] += 2;
+              writeboard[col + 1] += 2;
             }
           } else if (col == 0) {
             // left side, no corners
             writeboard[(row-1) * nrows + ncols_minus_1] += 2;
-            writeboard[(row-1) * nrows + 0] += 2;
+            writeboard[(row-1) * nrows] += 2;
             writeboard[(row-1) * nrows + 1] += 2;
             writeboard[row * nrows + ncols_minus_1] += 2;
             writeboard[row * nrows + 1] += 2;
             writeboard[(row+1) * nrows + ncols_minus_1] += 2;
-            writeboard[(row+1) * nrows + 0] += 2;
+            writeboard[(row+1) * nrows] += 2;
             writeboard[(row+1) * nrows + 1] += 2;
           } else if (col == ncols_minus_1) {
             // right side, no corners
             writeboard[(row-1) * nrows + ncols_minus_1-1] += 2;
             writeboard[(row-1) * nrows + ncols_minus_1] += 2;
-            writeboard[(row-1) * nrows + 0] += 2;
+            writeboard[(row-1) * nrows] += 2;
             writeboard[row * nrows + ncols_minus_1-1] += 2;
-            writeboard[row * nrows + 0] += 2;
+            writeboard[row * nrows] += 2;
             writeboard[(row+1) * nrows + ncols_minus_1-1] += 2;
             writeboard[(row+1) * nrows + ncols_minus_1] += 2;
-            writeboard[(row+1) * nrows + 0] += 2;
+            writeboard[(row+1) * nrows] += 2;
           } else {
             // inner
             writeboard[(row-1) * nrows + col-1] += 2;
