@@ -11,10 +11,12 @@
 #include <sched.h>
 
 /*****************************************************************************
- * Helper function definitions
+ * Helper function and type definitions
  ****************************************************************************/
 #define MAX_SIZE 10000
+#define NUM_THREADS 8
 
+// type used to pass arguments for each spawned thread
 typedef struct gol_thread_args {
   char *writeboard;
   char *readboard;
@@ -27,7 +29,6 @@ typedef struct gol_thread_args {
   pthread_barrier_t *gen_barrier;
 } gol_thread_args_t;
   
-#define NUM_THREADS 8
 
 char gamelogic_LUT[18] = {
   0, // 0: zero neighbors, and I'm already dead => stay dead
@@ -50,6 +51,10 @@ char gamelogic_LUT[18] = {
   0, // 17: 8 neighbors, and I'm alive => die
 };
 
+/**********************************************************
+ * print_board
+ * Print the given board without its neighbor counts
+ **********************************************************/
 void print_board(char *board, const int nrows, const int ncols) {
   for (int i = 0; i < nrows; ++i) {
     for (int j = 0; j < ncols; ++j) {
@@ -59,7 +64,11 @@ void print_board(char *board, const int nrows, const int ncols) {
   }
 }
 
-void raw_print_board(char *board, const int nrows, const int ncols) {
+/**********************************************************
+ * print_board_with_counts
+ * Print the given board along with its neighbor counts
+ **********************************************************/
+void print_board_with_counts(char *board, const int nrows, const int ncols) {
   for (int i = 0; i < nrows; ++i) {
     for (int j = 0; j < ncols; ++j) {
       printf("%d\t", board[i*nrows + j]);
@@ -68,6 +77,12 @@ void raw_print_board(char *board, const int nrows, const int ncols) {
   }
 }
 
+/**********************************************************
+ * format_intermediary_board
+ * Given a board which specifies whether a cell is alive or dead,
+ * format that same board to contain whether the cell is alive/dead
+ * and how many neighbors are alive
+ **********************************************************/
 void format_intermediary_board(char *board, const int nrows, const int ncols) {
   const int nrows_minus_1 = nrows - 1;
   const int ncols_minus_1 = ncols - 1;
@@ -111,6 +126,12 @@ void format_intermediary_board(char *board, const int nrows, const int ncols) {
   }
 }
 
+/**********************************************************
+ * game_of_life_subproblem
+ * Computes Conway's Game of Life based on input_args
+ * input_args must specify the boards, along with the region which
+ * this thread should be concerned with
+ **********************************************************/
 void* game_of_life_subproblem(void *input_args)
 {
   const gol_thread_args_t *args = (gol_thread_args_t*)input_args;
@@ -263,7 +284,8 @@ void* game_of_life_subproblem(void *input_args)
 }
 
 /*****************************************************************************
- * Game of life implementation
+ * game_of_life
+ * Main entry point. Spawn threads and assign a piece of the world to each of them
  ****************************************************************************/
 char*
 game_of_life (char* writeboard, 
@@ -279,6 +301,7 @@ game_of_life (char* writeboard,
   pthread_barrier_t gen_barrier;
   pthread_barrier_init(&gen_barrier, NULL, NUM_THREADS);
   format_intermediary_board(readboard, nrows, ncols);
+  // The first thread is this thread
   int i = 0;
   args[i].writeboard = writeboard;
   args[i].readboard = readboard;
@@ -289,6 +312,8 @@ game_of_life (char* writeboard,
   args[i].gens_max = gens_max;
   args[i].threadid = i;
   args[i].gen_barrier = &gen_barrier;
+
+  // any addition threads are created and started
   for (i = 1; i < NUM_THREADS; ++i) {
     args[i].writeboard = writeboard;
     args[i].readboard = readboard;
@@ -301,10 +326,16 @@ game_of_life (char* writeboard,
     args[i].gen_barrier = &gen_barrier;
     pthread_create(&threads[i-1], NULL, game_of_life_subproblem, &args[i]);
   }
-  game_of_life_subproblem(&args[0]); // use this thread as the first thread
+
+  // start this thread's work
+  game_of_life_subproblem(&args[0]);
+
+  // Wait until all spawned threads are finished
   for (i = 1; i < NUM_THREADS; ++i) {
     pthread_join(threads[i-1], NULL);
   }
+
+  // return the proper output board
   char *outboard = gens_max % 2 ? writeboard : readboard;
   return outboard;
 }
