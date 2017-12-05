@@ -1,12 +1,3 @@
-/*
-teamName: Literally Dead
-student1_fullName: Connor Smith
-student1_studentNumber: 1000421411
-student1_email: connor.smith@mail.utoronto.ca
-student2_fullName: Fan Guo
-student2_studentNumber: 1000626539
-student2_email: cfan.guo@mail.utoronto.ca
-*/
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
@@ -48,7 +39,6 @@ print_usage (const char argv0[])
 	   "\t<outfilename>:     file to which to save final board configuration;\n"
            "\t                   if not provided or just a single hyphen (-), then \n"
 	   "\t                   board is output to stdout\n"
-	   "\t[-s]:              Only run sequential code\n"
 	   "\n\n", argv0);
 }
 
@@ -65,7 +55,7 @@ boards_equalp (const char b1[], const char b2[], const int nrows, const int ncol
 {
   int i;
   for (i = 0; i < nrows * ncols; i++)
-    if ((b1[i] & 0x1) != (b2[i] & 0x1))
+    if (b1[i] != b2[i])
       return 0;
 
   return 1;
@@ -79,7 +69,7 @@ main (int argc, char* argv[])
    */
   const int verifyp = DO_VERIFY;
   const int argc_min = 3;
-  const int argc_max = 5;
+  const int argc_max = 4;
 
   int gens_max = 0;
   char* inboard = NULL;
@@ -120,9 +110,9 @@ main (int argc, char* argv[])
       exit (EXIT_FAILURE);
     }
 
-  if (argc == 3 || 0 == strcmp (argv[3], "-")){
+  if (argc < argc_max || 0 == strcmp (argv[3], "-"))
     output = stdout;
-  } else
+  else
     {
       output = fopen (argv[3], "w");
       if (output == NULL)
@@ -139,13 +129,7 @@ main (int argc, char* argv[])
 
   /* Create a second board for ping-ponging */
   outboard = make_board (nrows, ncols);
-  // only run sequential code and exit
-  if (argc == 5) {
-    printf("Only running seq code\n");
-    if (output != stdout && output!=stderr) fclose(output);
-    sequential_game_of_life(outboard, inboard, nrows, ncols, gens_max);
-    goto cleanup;
-  }
+
   /* If we want to verify the result, then make a third board and copy
      the initial state into it */
   if (verifyp)
@@ -173,6 +157,7 @@ main (int argc, char* argv[])
 	 could be either that inboard == final_board or that outboard
 	 == final_board */
       copy_board (outboard, final_board, nrows, ncols);
+
       /* Ping-pong between checkboard (contains the initial state) and
 	 inboard */
       final_board = sequential_game_of_life (inboard, checkboard, nrows, ncols, gens_max);
@@ -181,16 +166,12 @@ main (int argc, char* argv[])
 	printf ("Verification successful\n");
       else
 	{
-          FILE* verify_output = fopen("outputs/last_verification.pbm", "w");
-          save_board(verify_output, final_board, nrows, ncols);
-          
-	  fprintf (stderr, "*** Verification failed! Output actual to output/last_verification.pbm***\n");
+	  fprintf (stderr, "*** Verification failed! ***\n");
 	  exit (EXIT_FAILURE);
 	}
     }
 
   /* Clean up */
-cleanup:
   if (inboard != NULL)
     free (inboard);
   if (outboard != NULL)
@@ -200,4 +181,3 @@ cleanup:
 
   return 0;
 }
-
